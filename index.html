@@ -835,6 +835,10 @@
     let recognition = null;
     let isRecording = false;
     let capturedText = '';
+    let userStopped  = false;   // true only when the user explicitly stops
+    let sessionStart = 0;       // when the current recognition session began
+    let quickEnds    = 0;       // consecutive instant-ends → browser can't do STT
+    let hardError    = '';      // last fatal recognition error
     const voiceQuickBtn    = document.getElementById('voice-quick-btn');
     const recordingOverlay = document.getElementById('recording-overlay');
     const stopRecBtn       = document.getElementById('stop-rec-btn');
@@ -842,11 +846,12 @@
 
     function startRecording() {
       if (!recognition || isRecording) return;
-      capturedText = '';
+      capturedText = ''; userStopped = false; quickEnds = 0; hardError = '';
       try { recognition.start(); } catch (_) {}
     }
     function stopRecording() {
       if (!recognition || !isRecording) return;
+      userStopped = true;
       // abort() stops instantly; stop() is queued until the API finalizes (the "idle" wait)
       try { recognition.abort(); } catch (_) {}
     }
@@ -875,7 +880,7 @@
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      recognition.onstart = () => { capturedText = ''; setRecordingState(true); };
+      recognition.onstart = () => { sessionStart = Date.now(); capturedText = ''; setRecordingState(true); };
 
       // accumulate transcript live as the user speaks
       recognition.onresult = (e) => {
@@ -889,15 +894,45 @@
         if (recLabel) recLabel.textContent = capturedText ? '🔴 ' + capturedText : '🔴 Listening...';
       };
 
-      recognition.onerror = () => setRecordingState(false);
+      // 'no-speech' / 'aborted' are normal; the rest are real failures we surface.
+      recognition.onerror = (e) => {
+        if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(e.error)) {
+          hardError = e.error;
+        }
+      };
 
-      // send happens HERE — fires the moment recognition ends, manual or not
       recognition.onend = () => {
-        setRecordingState(false);
         const text = capturedText.trim();
-        capturedText = '';
-        if (recLabel) recLabel.innerHTML = '🔴 Listening — press <strong>V</strong> / <strong>Space</strong> to stop';
-        if (text) sendMessage(text);
+
+        // The user stopped, or we captured speech → finish this session.
+        if (userStopped || text) {
+          userStopped = false; quickEnds = 0; hardError = '';
+          setRecordingState(false);
+          capturedText = '';
+          if (recLabel) recLabel.innerHTML = '🎙️ Press <strong>V</strong> or the button to talk';
+          if (text) sendMessage(text);
+          return;
+        }
+
+        // Ended on its own with no speech. If it ends almost instantly, the
+        // browser can't actually do speech recognition (e.g. Brave) → stop.
+        if (Date.now() - sessionStart < 500) quickEnds++; else quickEnds = 0;
+
+        if (hardError || quickEnds >= 3) {
+          setRecordingState(false);
+          const msg =
+            (hardError === 'not-allowed' || hardError === 'service-not-allowed')
+              ? '🚫 Microphone blocked — allow mic access for this site in your browser.'
+            : hardError === 'audio-capture'
+              ? '🚫 No microphone detected.'
+              : '🚫 Voice input isn’t available in this browser. Try Chrome or Edge, or use the Text button.';
+          quickEnds = 0; hardError = '';
+          if (recLabel) recLabel.textContent = msg;
+          return;
+        }
+
+        // Otherwise keep listening — restart the session.
+        try { recognition.start(); } catch (_) { setRecordingState(false); }
       };
 
       // Voice button toggles: press once to start, again to stop
