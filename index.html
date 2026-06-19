@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VR Lab</title>
+  <title>LabMate · VR Lab</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -21,6 +23,19 @@
     .loading-bar { height: 100%; width: 0; background: linear-gradient(90deg, #00aaff, #00ffcc); border-radius: 2px; animation: load 2.5s ease forwards; }
     @keyframes load { to { width: 100%; } }
     .loading-label { color: #4a7a9b; font-family: 'Courier New', monospace; font-size: 0.8rem; letter-spacing: 0.1em; }
+
+    /* ── Website link button ── */
+    #site-link {
+      position: fixed; top: 16px; left: 16px; z-index: 300;
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(8,13,24,0.85); color: #aad4ff;
+      font-family: 'Courier New', monospace; font-size: 0.82rem; font-weight: bold;
+      letter-spacing: 0.04em; text-decoration: none;
+      padding: 9px 14px; border: 1px solid #1a3a5a; border-radius: 12px;
+      box-shadow: 0 0 14px rgba(0,170,255,0.18); transition: all 0.2s;
+    }
+    #site-link:hover { border-color: #00aaff; color: #00ffcc; box-shadow: 0 0 22px rgba(0,170,255,0.4); }
+    #site-link img { display: block; }
 
     /* ── Controls hint ── */
     #controls-hint {
@@ -233,10 +248,19 @@
 
   <!-- Loading screen -->
   <div id="loading-screen">
-    <div class="lab-logo">⬡ VR Lab</div>
+    <div class="lab-logo">
+      <img src="favicon.svg" alt="" width="40" height="40" style="vertical-align:-8px;margin-right:10px;">
+      Lab<span style="color:#00ffcc;">Mate</span>
+    </div>
     <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
     <div class="loading-label">Initializing lab environment...</div>
   </div>
+
+  <!-- Website link -->
+  <a id="site-link" href="https://lab-mate-khaki.vercel.app/" target="_blank" rel="noopener">
+    <img src="favicon.svg" alt="" width="20" height="20">
+    LabMate Website ↗
+  </a>
 
   <!-- Controls hint -->
   <div id="controls-hint">
@@ -279,7 +303,7 @@
   <!-- AI Chat Overlay -->
   <div id="chat-overlay">
     <div id="chat-header">
-      <span id="chat-topic">🧪 Lab Assistant</span>
+      <span id="chat-topic">🤖 LabMate Assistant</span>
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
         <button id="close-chat">✕</button>
