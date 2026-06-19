@@ -434,8 +434,6 @@
         this.rayOrigin = new THREE.Vector3();
         this.rayDir    = new THREE.Vector3();
 
-        // Mesh names that are SOLID box obstacles (benches + instrument tower).
-        const SOLID = ['Cylinder', 'Oscope_Body'];
         const lab = document.getElementById('lab');
 
         const build = () => {
@@ -443,21 +441,22 @@
           let biggest = null, biggestArea = 0;
 
           lab.object3D.traverse(o => {
-            if (!o.isMesh || !o.name) return;
+            if (!o.isMesh) return;
             this.allMeshes.push(o);
 
             const b = new THREE.Box3().setFromObject(o);
             if (!isFinite(b.min.x)) return;
             const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
 
-            // Track the largest mesh → far backstop only.
+            // Track the largest mesh → that's the room shell (far backstop only).
             const area = sx * sz;
             if (area > biggestArea) { biggestArea = area; biggest = b; }
 
-            // Add as a solid obstacle if it's a bench/instrument and not huge.
-            if (SOLID.some(p => o.name.startsWith(p)) && sx < 9 && sz < 9) {
+            // Any furniture-sized mesh (benches, cabinets, instruments) becomes a
+            // solid box. Skip the room shell (huge) and tiny decorations.
+            if (sx < 9 && sz < 9 && (sx > 0.12 || sz > 0.12)) {
               this.boxes.push({
-                minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, label: o.name,
+                minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, label: o.name || 'mesh',
               });
             }
           });
@@ -481,13 +480,18 @@
       },
 
       // Is there a wall (or any geometry) within reach when moving along an axis?
+      // Cast at several heights so low cabinets and high shelves are both caught.
       hitsWall(x, z, ax, sign, dist) {
         if (!this.allMeshes.length) return false;
-        this.rayOrigin.set(x, 1.2, z);
         this.rayDir.set(ax === 'x' ? sign : 0, 0, ax === 'z' ? sign : 0);
-        this.ray.set(this.rayOrigin, this.rayDir);
-        this.ray.far = Math.abs(dist) + this.data.pad;
-        return this.ray.intersectObjects(this.allMeshes, false).length > 0;
+        const far = Math.abs(dist) + this.data.pad;
+        for (const h of [0.4, 1.0, 1.6, 2.2]) {
+          this.rayOrigin.set(x, h, z);
+          this.ray.set(this.rayOrigin, this.rayDir);
+          this.ray.far = far;
+          if (this.ray.intersectObjects(this.allMeshes, false).length > 0) return true;
+        }
+        return false;
       },
 
       // Draw the collision boxes as translucent helpers so positions can be checked.
