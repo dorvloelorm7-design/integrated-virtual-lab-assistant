@@ -697,6 +697,15 @@
       window.speechSynthesis.speak(utterance);
     }
 
+    // ── Backend URL ─────────────────────────────────────────────────────
+    // Local dev uses the Node server on localhost:3000.
+    // When served from any other host (e.g. Wasmer), it uses the deployed
+    // backend below — REPLACE this with your Render URL after deploying server.js.
+    const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const API_BASE = isLocal
+      ? 'http://localhost:3000'
+      : 'https://REPLACE-WITH-YOUR-BACKEND.onrender.com';
+
     // ── Send message ────────────────────────────────────────────────────
     async function sendMessage(messageText) {
       const message = messageText || userInput.value.trim();
@@ -706,7 +715,7 @@
       sendBtn.disabled = true;
       sendBtn.textContent = '...';
       try {
-        const response = await fetch('http://localhost:3000/chat', {
+        const response = await fetch(`${API_BASE}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, systemPrompt: activeSystemPrompt })
