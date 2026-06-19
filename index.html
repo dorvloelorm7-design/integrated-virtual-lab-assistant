@@ -317,137 +317,232 @@
 
     <!--
     ══════════════════════════════════════════════════════
-    AI PROXIMITY ZONES
-    Walk near these → press E → opens AI chat
-    Adjust position="X Y Z" to match your .glb model
+    AI PROXIMITY ZONES  (anchored to real objects in 67.glb)
+    Walk near these → press E → opens AI chat.
+    Zones are invisible triggers (no bubble geometry).
+    World coords = model-local × 1.5 (lab scale).
     ══════════════════════════════════════════════════════
     -->
 
-    <!-- ZONE 1: Oscilloscope (Signal Measurement) -->
-    <a-sphere class="proximity-zone"
+    <!-- ZONE 1: Oscilloscope — real scope on the left bench -->
+    <a-sphere class="proximity-zone" visible="false"
       data-topic="📈 Oscilloscope Station"
       data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in the OSCILLOSCOPE — measuring and interpreting waveforms, setting timebase and voltage/division, triggering, probe compensation, and reading frequency, amplitude, and phase. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
       data-prompt="Press E to use the Oscilloscope"
-      position="-1.5 1.0 -1.0" radius="0.8"
-      material="opacity: 0.02; transparent: true; color: #00ff88" visible="true">
+      position="-8.43 1.2 -2.11" radius="1.4">
     </a-sphere>
-    <a-text value="📈 Oscilloscope" position="-1.5 1.9 -1.0" align="center" color="#00ff88" width="1.5"></a-text>
+    <a-text value="📈 Oscilloscope" position="-8.43 3.0 -2.11" align="center" color="#00ff88" width="5"></a-text>
 
-    <!-- ZONE 2: Breadboard (Circuit Building) -->
-    <a-sphere class="proximity-zone"
-      data-topic="🔌 Breadboard Station"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in BUILDING and TESTING circuits on a breadboard — resistors, capacitors, inductors, diodes, transistors, ICs, series/parallel wiring, Ohm's law, Kirchhoff's laws, and powering circuits safely from the bench supply. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
-      data-prompt="Press E to build a Circuit"
-      position="1.5 1.0 -1.5" radius="0.8"
-      material="opacity: 0.02; transparent: true; color: #ffaa00" visible="true">
+    <!-- ZONE 2: Instrument Rack — the stacked bench instruments -->
+    <a-sphere class="proximity-zone" visible="false"
+      data-topic="🎛️ Power Supply & Function Generator"
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station is the stacked BENCH INSTRUMENT RACK — the DC bench power supply and the function/signal generator. Help with setting voltage and current limits, enabling/disabling the output safely, selecting waveform shape, frequency and amplitude, and feeding a signal into a circuit or the oscilloscope. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-prompt="Press E for the Power Supply &amp; Generator"
+      position="2.92 1.2 4.09" radius="1.4">
     </a-sphere>
-    <a-text value="🔌 Breadboard" position="1.5 1.9 -1.5" align="center" color="#ffaa00" width="1.5"></a-text>
+    <a-text value="🎛️ Power Supply / Generator" position="2.92 2.8 4.09" align="center" color="#ffaa00" width="5"></a-text>
 
-    <!-- ZONE 3: Multimeter (Measurement & Calibration) -->
-    <a-sphere class="proximity-zone"
-      data-topic="🔧 Multimeter & Calibration"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in the MULTIMETER and instrument CALIBRATION — measuring voltage, current, resistance, and continuity; selecting ranges; zeroing and calibrating meters; and verifying instrument accuracy against references. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
-      data-prompt="Press E to use the Multimeter"
-      position="1.5 1.0 0.5" radius="0.8"
-      material="opacity: 0.02; transparent: true; color: #00aaff" visible="true">
+    <!-- ZONE 3: Measurement Bench — measurement & calibration -->
+    <a-sphere class="proximity-zone" visible="false"
+      data-topic="🔧 Measurement &amp; Calibration"
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the MEASUREMENT bench — using the multimeter and instrument CALIBRATION: measuring voltage, current, resistance, and continuity; selecting ranges; zeroing and calibrating meters; and verifying instrument accuracy against references. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-prompt="Press E for the Measurement Bench"
+      position="-1.44 1.2 -5.82" radius="1.5">
     </a-sphere>
-    <a-text value="🔧 Multimeter" position="1.5 1.9 0.5" align="center" color="#00aaff" width="1.5"></a-text>
+    <a-text value="🔧 Measurement Bench" position="-1.44 2.6 -5.82" align="center" color="#00aaff" width="5"></a-text>
 
-    <!-- ZONE 4: Workbench (General Electronics) -->
-    <a-sphere class="proximity-zone"
+    <!-- ZONE 4: Workbench — general electronics (central bench) -->
+    <a-sphere class="proximity-zone" visible="false"
       data-topic="🛠️ Electronics Workbench"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the general WORKBENCH — help with overall electronics physics lab work: AC/DC theory, the function generator and bench power supply, soldering technique, instrument setup, and electrical lab safety. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the general WORKBENCH — help with overall electronics physics lab work: AC/DC theory, building and testing circuits, components (resistors, capacitors, diodes, transistors, ICs), Ohm's and Kirchhoff's laws, soldering technique, instrument setup, and electrical lab safety. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
       data-prompt="Press E for the Workbench"
-      position="-1.5 1.0 0.5" radius="0.8"
-      material="opacity: 0.02; transparent: true; color: #ff44aa" visible="true">
+      position="-1.43 1.2 0.18" radius="1.5">
     </a-sphere>
-    <a-text value="🛠️ Workbench" position="-1.5 1.9 0.5" align="center" color="#ff44aa" width="1.5"></a-text>
+    <a-text value="🛠️ Workbench" position="-1.43 2.6 0.18" align="center" color="#ff44aa" width="5"></a-text>
 
     <!--
     ══════════════════════════════════════════════════════
     SAFETY HAZARD ZONES (Addy's system)
-    These trigger the safety HUD when approached
-    Adjust position="X Y Z" to match actual hazard locations
+    Invisible triggers anchored to the REAL equipment in
+    67.glb (no placeholder geometry, no bubble domes).
+    World coords = model-local × 1.5 (lab scale).
     ══════════════════════════════════════════════════════
     -->
 
-    <!-- Chemical Storage -->
-    <a-entity id="hazard-chemical-shelf" position="-3.2 0 -3"
-      hazard-zone="type: chemical; severity: danger; label: Chemical Storage;
-        message: Flammable and corrosive chemicals stored here. Do not open containers without PPE.;
-        outerRadius: 2.5; innerRadius: 1.0">
-      <a-box width="1.2" height="1.8" depth="0.5" color="#6a4c93"></a-box>
-      <a-sphere class="hazard-indicator" position="0 0.9 0" radius="2.5"
-        material="color: #ef5350; transparent: true; opacity: 0.06; side: double"></a-sphere>
-      <a-text value="⚠ Chemical Storage" align="center" color="#ff4444" position="0 2.1 0" scale="0.5 0.5 0.5"></a-text>
+    <!-- Oscilloscope — high-voltage probe inputs (left bench) -->
+    <a-entity id="hazard-oscilloscope" position="-8.43 1.4 -2.11"
+      hazard-zone="type: electrical; severity: caution; label: Oscilloscope;
+        message: High-voltage probe inputs. Do not exceed the probe/channel voltage rating or touch live test points while measuring.;
+        outerRadius: 2.0; innerRadius: 0.9">
     </a-entity>
 
-    <!-- Fume Hood -->
-    <a-entity id="hazard-fume-hood" position="3.5 0 -4.5"
-      hazard-zone="type: ventilation; severity: danger; label: Fume Hood Zone;
-        message: Never put your head inside a running fume hood. Keep sash at safe height.;
-        outerRadius: 2; innerRadius: 0.9">
-      <a-box width="2" height="2.2" depth="0.8" color="#457b9d"></a-box>
-      <a-box width="2.2" height="0.15" depth="1" color="#1d3557" position="0 2.1 0.1"></a-box>
-      <a-sphere class="hazard-indicator" position="0 1 0.8" radius="2"
-        material="color: #ef5350; transparent: true; opacity: 0.06; side: double"></a-sphere>
-      <a-text value="⚠ Fume Hood" align="center" color="#ff4444" position="0 2.5 0.5" scale="0.5 0.5 0.5"></a-text>
+    <!-- Bench power supply / function generator — live output terminals -->
+    <a-entity id="hazard-power-supply" position="2.92 1.2 4.09"
+      hazard-zone="type: electrical; severity: danger; label: Bench Power Supply;
+        message: Live output terminals. Switch the output OFF before connecting or removing leads, and never short the terminals.;
+        outerRadius: 2.2; innerRadius: 1.0">
     </a-entity>
 
-    <!-- Hot Plate -->
-    <a-entity id="hazard-hot-plate" position="0.8 1 -1"
-      hazard-zone="type: heat; severity: caution; label: Hot Plate;
-        message: Surface may exceed 300°C. Do not touch. Keep flammable materials away.;
+    <!-- Loose cables on the benches — trip / snag hazard -->
+    <a-entity id="hazard-cables" position="-3.45 0.3 2.36"
+      hazard-zone="type: trip; severity: caution; label: Loose Cables;
+        message: Trailing test leads and cables. Route them clear of walkways to avoid snagging or pulling instruments off the bench.;
+        outerRadius: 2.2; innerRadius: 0.9">
+    </a-entity>
+
+    <!-- Central workbench — ESD-sensitive components -->
+    <a-entity id="hazard-esd" position="-1.43 1.2 0.18"
+      hazard-zone="type: esd; severity: info; label: ESD-Sensitive Bench;
+        message: Static-sensitive components in use. Wear a grounding wrist strap and touch a grounded point before handling ICs.;
         outerRadius: 1.8; innerRadius: 0.7">
-      <a-cylinder radius="0.25" height="0.08" color="#333"></a-cylinder>
-      <a-cylinder radius="0.2" height="0.02" color="#ef5350" position="0 0.05 0"></a-cylinder>
-      <a-sphere class="hazard-indicator" radius="1.8"
-        material="color: #ffb74d; transparent: true; opacity: 0.06; side: double"></a-sphere>
-      <a-text value="⚠ Hot Plate" align="center" color="#ffaa00" position="0 0.35 0" scale="0.35 0.35 0.35"></a-text>
-    </a-entity>
-
-    <!-- Centrifuge -->
-    <a-entity id="hazard-centrifuge" position="-1.2 0.55 2.5"
-      hazard-zone="type: mechanical; severity: caution; label: Centrifuge;
-        message: Rotor zone — wait until fully stopped before opening lid.;
-        outerRadius: 2; innerRadius: 0.8">
-      <a-cylinder radius="0.45" height="0.5" color="#495057"></a-cylinder>
-      <a-sphere class="hazard-indicator" position="0 0.25 0" radius="2"
-        material="color: #ffb74d; transparent: true; opacity: 0.06; side: double"></a-sphere>
-      <a-text value="⚠ Centrifuge" align="center" color="#ffaa00" position="0 0.85 0" scale="0.4 0.4 0.4"></a-text>
-    </a-entity>
-
-    <!-- Wet Floor -->
-    <a-entity id="hazard-wet-floor" position="2 0.01 1.5"
-      hazard-zone="type: slip; severity: info; label: Wet Floor;
-        message: Slip hazard — walk slowly and report spills immediately.;
-        outerRadius: 2.2; innerRadius: 1.2">
-      <a-plane rotation="-90 0 0" width="2" height="1.5" color="#74c0fc" opacity="0.7"></a-plane>
-      <a-cone radius-bottom="0.15" radius-top="0" height="0.4" color="#ffd43b" position="0 0.2 0"></a-cone>
-      <a-sphere class="hazard-indicator" radius="2.2"
-        material="color: #4fc3f7; transparent: true; opacity: 0.06; side: double"></a-sphere>
-      <a-text value="⚠ Wet Floor" align="center" color="#4fc3f7" position="0 0.6 0" scale="0.4 0.4 0.4"></a-text>
-    </a-entity>
-
-    <!-- Bio Waste -->
-    <a-entity id="hazard-bio-waste" position="-4.5 0 2"
-      hazard-zone="type: biological; severity: danger; label: Biohazard Waste;
-        message: Do not overfill or open without training. Use designated disposal only.;
-        outerRadius: 1.6; innerRadius: 0.6">
-      <a-cylinder radius="0.35" height="0.9" color="#ffd166"></a-cylinder>
-      <a-sphere class="hazard-indicator" position="0 0.45 0" radius="1.6"
-        material="color: #ef5350; transparent: true; opacity: 0.06; side: double"></a-sphere>
-      <a-text value="⚠ Bio Waste" align="center" color="#ff4444" position="0 0.65 0" scale="0.3 0.3 0.3"></a-text>
     </a-entity>
 
     <!-- CAMERA RIG -->
-    <a-entity id="rig" position="0.06 0 1.5" movement-controls="speed: 0.05; fly: false">
-      <a-camera id="camera" position="0 1.65 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
+    <a-entity id="rig" position="0.06 0 3" movement-controls="speed: 0.05; fly: false" lab-collider>
+      <a-camera id="camera" position="0 2.4 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
         <a-cursor color="#7df" opacity="0.6" fuse="false" raycaster="objects: .interactive"></a-cursor>
       </a-camera>
+
+      <!-- VR HANDS — visible hand models when using a headset with controllers -->
+      <a-entity id="leftHand"
+        hand-controls="hand: left; handModelStyle: lowPoly; color: #ffd5b3"
+        hand-tracking-controls="hand: left"></a-entity>
+      <a-entity id="rightHand"
+        hand-controls="hand: right; handModelStyle: lowPoly; color: #ffd5b3"
+        hand-tracking-controls="hand: right"></a-entity>
     </a-entity>
 
   </a-scene>
+
+  <!-- Wall & furniture collision (prevents walking through walls / benches) -->
+  <script>
+    AFRAME.registerComponent('lab-collider', {
+      schema: {
+        pad:   { default: 0.4 },    // player half-width buffer around objects
+        debug: { default: false },  // set true to SEE the collision boxes
+      },
+      init() {
+        this.last      = new THREE.Vector3();
+        this.haveLast  = false;
+        this.boxes     = [];   // solid footprints (world XZ) — derived from real geometry
+        this.allMeshes = [];   // every mesh — raycast against these for walls
+        this.room      = null; // far-backstop clamp (world XZ)
+        this.ready     = false;
+
+        // Raycaster used to detect walls in the direction of travel.
+        this.ray       = new THREE.Raycaster();
+        this.rayOrigin = new THREE.Vector3();
+        this.rayDir    = new THREE.Vector3();
+
+        // Mesh names that are SOLID box obstacles (benches + instrument tower).
+        const SOLID = ['Cylinder', 'Oscope_Body'];
+        const lab = document.getElementById('lab');
+
+        const build = () => {
+          lab.object3D.updateMatrixWorld(true);
+          let biggest = null, biggestArea = 0;
+
+          lab.object3D.traverse(o => {
+            if (!o.isMesh || !o.name) return;
+            this.allMeshes.push(o);
+
+            const b = new THREE.Box3().setFromObject(o);
+            if (!isFinite(b.min.x)) return;
+            const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
+
+            // Track the largest mesh → far backstop only.
+            const area = sx * sz;
+            if (area > biggestArea) { biggestArea = area; biggest = b; }
+
+            // Add as a solid obstacle if it's a bench/instrument and not huge.
+            if (SOLID.some(p => o.name.startsWith(p)) && sx < 9 && sz < 9) {
+              this.boxes.push({
+                minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, label: o.name,
+              });
+            }
+          });
+
+          // Generous backstop so the player can never escape the model entirely.
+          if (biggest && (biggest.max.x - biggest.min.x) > 5) {
+            this.room = {
+              minX: biggest.min.x, maxX: biggest.max.x,
+              minZ: biggest.min.z, maxZ: biggest.max.z,
+            };
+          }
+
+          this.ready = true;
+          console.log('[lab-collider] solid boxes:', this.boxes.length,
+                      '· raycast meshes:', this.allMeshes.length);
+          if (this.data.debug) this.drawDebug();
+        };
+
+        if (lab.getObject3D('mesh')) build();
+        else lab.addEventListener('model-loaded', build);
+      },
+
+      // Is there a wall (or any geometry) within reach when moving along an axis?
+      hitsWall(x, z, ax, sign, dist) {
+        if (!this.allMeshes.length) return false;
+        this.rayOrigin.set(x, 1.2, z);
+        this.rayDir.set(ax === 'x' ? sign : 0, 0, ax === 'z' ? sign : 0);
+        this.ray.set(this.rayOrigin, this.rayDir);
+        this.ray.far = Math.abs(dist) + this.data.pad;
+        return this.ray.intersectObjects(this.allMeshes, false).length > 0;
+      },
+
+      // Draw the collision boxes as translucent helpers so positions can be checked.
+      drawDebug() {
+        const scene = this.el.sceneEl;
+        this.boxes.forEach(b => {
+          const el = document.createElement('a-box');
+          el.setAttribute('position', `${(b.minX+b.maxX)/2} 1 ${(b.minZ+b.maxZ)/2}`);
+          el.setAttribute('width',  Math.max(0.05, b.maxX - b.minX));
+          el.setAttribute('depth',  Math.max(0.05, b.maxZ - b.minZ));
+          el.setAttribute('height', 2);
+          el.setAttribute('material', 'color: #ff0066; opacity: 0.3; transparent: true; depthTest: false');
+          scene.appendChild(el);
+        });
+      },
+
+      // would (x,z) sit inside any padded footprint?
+      blocked(x, z) {
+        const p = this.data.pad;
+        for (const b of this.boxes) {
+          if (x > b.minX - p && x < b.maxX + p &&
+              z > b.minZ - p && z < b.maxZ + p) return true;
+        }
+        return false;
+      },
+
+      tick() {
+        if (!this.ready) return;
+        const pos = this.el.object3D.position;
+        if (!this.haveLast) { this.last.copy(pos); this.haveLast = true; return; }
+
+        const dx = pos.x - this.last.x;
+        const dz = pos.z - this.last.z;
+
+        // Block each axis separately → lets the player slide along surfaces.
+        // AABB boxes catch the benches; the raycast catches the walls.
+        if (dx !== 0 && (this.blocked(pos.x, this.last.z) ||
+            this.hitsWall(this.last.x, this.last.z, 'x', Math.sign(dx), dx))) {
+          pos.x = this.last.x;
+        }
+        if (dz !== 0 && (this.blocked(pos.x, pos.z) ||
+            this.hitsWall(pos.x, this.last.z, 'z', Math.sign(dz), dz))) {
+          pos.z = this.last.z;
+        }
+
+        // Far backstop so the player can never leave the model entirely.
+        if (this.room) {
+          pos.x = Math.min(Math.max(pos.x, this.room.minX), this.room.maxX);
+          pos.z = Math.min(Math.max(pos.z, this.room.minZ), this.room.maxZ);
+        }
+
+        this.last.set(pos.x, pos.y, pos.z);
+      },
+    });
+  </script>
 
   <!-- Addy's Safety System -->
   <script>
