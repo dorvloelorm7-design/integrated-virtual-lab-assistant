@@ -698,13 +698,12 @@
     }
 
     // ── Backend URL ─────────────────────────────────────────────────────
-    // Local dev uses the Node server on localhost:3000.
-    // When served from any other host (e.g. Wasmer), it uses the deployed
-    // backend below — REPLACE this with your Render URL after deploying server.js.
+    // Local dev uses the Node server (server.js) on localhost:3000 at /chat.
+    // When deployed (Vercel), the backend is the serverless function at /api/chat.
     const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-    const API_BASE = isLocal
-      ? 'http://localhost:3000'
-      : 'https://REPLACE-WITH-YOUR-BACKEND.onrender.com';
+    const CHAT_URL = isLocal
+      ? 'http://localhost:3000/chat'
+      : '/api/chat';
 
     // ── Send message ────────────────────────────────────────────────────
     async function sendMessage(messageText) {
@@ -715,7 +714,7 @@
       sendBtn.disabled = true;
       sendBtn.textContent = '...';
       try {
-        const response = await fetch(`${API_BASE}/chat`, {
+        const response = await fetch(CHAT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, systemPrompt: activeSystemPrompt })
