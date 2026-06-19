@@ -443,22 +443,10 @@
           lab.object3D.traverse(o => {
             if (!o.isMesh) return;
             this.allMeshes.push(o);
-
             const b = new THREE.Box3().setFromObject(o);
             if (!isFinite(b.min.x)) return;
-            const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
-
-            // Track the largest mesh → that's the room shell (far backstop only).
-            const area = sx * sz;
+            const area = (b.max.x - b.min.x) * (b.max.z - b.min.z);
             if (area > biggestArea) { biggestArea = area; biggest = b; }
-
-            // Any furniture-sized mesh (benches, cabinets, instruments) becomes a
-            // solid box. Skip the room shell (huge) and tiny decorations.
-            if (sx < 9 && sz < 9 && (sx > 0.12 || sz > 0.12)) {
-              this.boxes.push({
-                minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, label: o.name || 'mesh',
-              });
-            }
           });
 
           // Generous backstop so the player can never escape the model entirely.
@@ -470,50 +458,30 @@
           }
 
           this.ready = true;
-          console.log('[lab-collider] solid boxes:', this.boxes.length,
-                      '· raycast meshes:', this.allMeshes.length);
-          if (this.data.debug) this.drawDebug();
+          console.log('[lab-collider] raycast meshes:', this.allMeshes.length);
         };
 
         if (lab.getObject3D('mesh')) build();
         else lab.addEventListener('model-loaded', build);
       },
 
-      // Is there a wall (or any geometry) within reach when moving along an axis?
-      // Cast at several heights so low cabinets and high shelves are both caught.
-      hitsWall(x, z, ax, sign, dist) {
+      // Is geometry within reach when moving (dirX,dirZ) from (x,z)?
+      // Casts a fan of rays — several lateral offsets × several heights — so the
+      // player has real width/height and can't slip between legs or under a top,
+      // while still being able to walk right up to any surface.
+      obstacle(x, z, dirX, dirZ, dist) {
         if (!this.allMeshes.length) return false;
-        this.rayDir.set(ax === 'x' ? sign : 0, 0, ax === 'z' ? sign : 0);
-        const far = Math.abs(dist) + this.data.pad;
-        for (const h of [0.4, 1.0, 1.6, 2.2]) {
-          this.rayOrigin.set(x, h, z);
-          this.ray.set(this.rayOrigin, this.rayDir);
-          this.ray.far = far;
-          if (this.ray.intersectObjects(this.allMeshes, false).length > 0) return true;
-        }
-        return false;
-      },
-
-      // Draw the collision boxes as translucent helpers so positions can be checked.
-      drawDebug() {
-        const scene = this.el.sceneEl;
-        this.boxes.forEach(b => {
-          const el = document.createElement('a-box');
-          el.setAttribute('position', `${(b.minX+b.maxX)/2} 1 ${(b.minZ+b.maxZ)/2}`);
-          el.setAttribute('width',  Math.max(0.05, b.maxX - b.minX));
-          el.setAttribute('depth',  Math.max(0.05, b.maxZ - b.minZ));
-          el.setAttribute('height', 2);
-          el.setAttribute('material', 'color: #ff0066; opacity: 0.3; transparent: true; depthTest: false');
-          scene.appendChild(el);
-        });
-      },
-
-      // would (x,z) sit inside any padded footprint?
-      blocked(x, z) {
-        const p = this.data.pad;
-        for (const b of this.boxes) {
-          if (x > b.minX - p && x < b.maxX + p &&
-              z > b.minZ - p && z < b.maxZ + p) return true;
+        const far = dist + this.data.pad;
+        const px = -dirZ, pz = dirX;            // perpendicular (for side offsets)
+        this.rayDir.set(dirX, 0, dirZ);
+        for (const off of [-0.3, 0, 0.3]) {
+          const ox = x + px * off, oz = z + pz * off;
+          for (const h of [0.4, 1.1, 1.8]) {
+            this.rayOrigin.set(ox, h, oz);
+            this.ray.set(this.rayOrigin, this.rayDir);
+            this.ray.far = far;
+            if (this.ray.intersectObjects(this.allMeshes, false).length > 0) return true;
+          }
         }
         return false;
       },
@@ -527,30 +495,11 @@
         const dz = pos.z - this.last.z;
 
         // Block each axis separately → lets the player slide along surfaces.
-        // AABB boxes catch the benches; the raycast catches the walls.
-        if (dx !== 0 && (this.blocked(pos.x, this.last.z) ||
-            this.hitsWall(this.last.x, this.last.z, 'x', Math.sign(dx), dx))) {
+        if (dx !== 0 && this.obstacle(this.last.x, this.last.z, Math.sign(dx), 0, Math.abs(dx))) {
           pos.x = this.last.x;
         }
-        if (dz !== 0 && (this.blocked(pos.x, pos.z) ||
-            this.hitsWall(pos.x, this.last.z, 'z', Math.sign(dz), dz))) {
+        if (dz !== 0 && this.obstacle(pos.x, this.last.z, 0, Math.sign(dz), Math.abs(dz))) {
           pos.z = this.last.z;
-        }
-
-        // De-penetration: if we still ended up inside a box (e.g. slipped in at
-        // a corner), push straight out along the shallowest axis.
-        const p = this.data.pad;
-        for (const b of this.boxes) {
-          if (pos.x > b.minX - p && pos.x < b.maxX + p &&
-              pos.z > b.minZ - p && pos.z < b.maxZ + p) {
-            const dL = pos.x - (b.minX - p), dR = (b.maxX + p) - pos.x;
-            const dB = pos.z - (b.minZ - p), dF = (b.maxZ + p) - pos.z;
-            const m = Math.min(dL, dR, dB, dF);
-            if      (m === dL) pos.x = b.minX - p;
-            else if (m === dR) pos.x = b.maxX + p;
-            else if (m === dB) pos.z = b.minZ - p;
-            else               pos.z = b.maxZ + p;
-          }
         }
 
         // Far backstop so the player can never leave the model entirely.
