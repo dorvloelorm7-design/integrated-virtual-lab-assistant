@@ -47,17 +47,54 @@
       50% { box-shadow: 0 0 25px rgba(0,170,255,0.7); }
     }
 
+    /* ── Recording overlay (compact bar, bottom-center) ── */
+    #recording-overlay {
+      display: none; position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%); z-index: 99998;
+      background: rgba(10,0,0,0.82); border: 1px solid rgba(255,68,68,0.5);
+      border-radius: 30px; padding: 8px 10px 8px 16px;
+      flex-direction: row; align-items: center; gap: 12px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+      max-width: calc(100vw - 32px);
+    }
+    #recording-overlay.active { display: flex; }
+    #stop-rec-btn {
+      padding: 8px 20px; font-size: 0.85rem; font-weight: bold;
+      font-family: 'Courier New', monospace; letter-spacing: 0.08em;
+      background: #cc0000; color: #fff; border: 1px solid #ff4444;
+      border-radius: 18px; cursor: pointer; white-space: nowrap;
+      box-shadow: 0 0 14px rgba(255,0,0,0.5);
+      animation: stop-pulse 0.8s infinite;
+    }
+    #stop-rec-btn:hover { background: #ff0000; }
+    @keyframes stop-pulse {
+      0%,100% { box-shadow: 0 0 8px rgba(255,0,0,0.4); }
+      50%      { box-shadow: 0 0 18px rgba(255,0,0,0.8); }
+    }
+    #rec-label {
+      color: #ff8888; font-family: 'Courier New', monospace;
+      font-size: 0.8rem; letter-spacing: 0.04em; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
     /* ── Voice status indicator ── */
     #voice-status {
       display: none;
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.8); border: 1px solid #ff4444;
+      background: rgba(10,0,0,0.92); border: 2px solid #ff4444;
       color: #ff4444; font-family: 'Courier New', monospace;
-      font-size: 0.8rem; padding: 8px 20px; border-radius: 20px; z-index: 300;
+      font-size: 0.95rem; font-weight: bold;
+      padding: 12px 28px; border-radius: 30px; z-index: 9999;
+      cursor: pointer; letter-spacing: 0.08em;
+      animation: rec-blink-border 1s infinite;
     }
-    #voice-status.listening { border-color: #ff4444; color: #ff4444; }
-    #voice-status.speaking { border-color: #00ffcc; color: #00ffcc; cursor: pointer; }
-    #voice-status.speaking:hover { background: rgba(0,30,20,0.9); }
+    #voice-status:hover { background: rgba(60,0,0,0.95); }
+    @keyframes rec-blink-border {
+      0%,100% { box-shadow: 0 0 10px rgba(255,60,60,0.4); }
+      50%      { box-shadow: 0 0 24px rgba(255,60,60,0.9); }
+    }
+    #voice-status.speaking { border-color: #00ffcc; color: #00ffcc; animation: none;
+      box-shadow: 0 0 14px rgba(0,255,200,0.4); }
 
     /* ── TTS stop button ── */
     #stop-tts-btn {
@@ -79,22 +116,36 @@
     #tts-toggle-btn.tts-on { border-color: #00ffcc; color: #00ffcc; }
     #tts-toggle-btn:hover { border-color: #00aaff; color: #00aaff; }
 
-    /* ── Open chat button ── */
-    #open-chat-btn {
+    /* ── Assistant button group ── */
+    #assistant-btns {
       position: fixed; bottom: 60px; right: 24px;
-      background: #00aaff; color: #080d18; font-family: 'Courier New', monospace;
-      font-size: 0.82rem; font-weight: bold; padding: 11px 18px;
-      border: none; border-radius: 10px; cursor: pointer; z-index: 200;
-      box-shadow: 0 0 20px rgba(0,170,255,0.4); transition: background 0.2s;
+      display: flex; flex-direction: row; gap: 10px; align-items: center; z-index: 200;
     }
-    #open-chat-btn:hover { background: #00ccff; }
+    .quick-btn {
+      background: #080d18; color: #00aaff; font-family: 'Courier New', monospace;
+      font-size: 0.9rem; font-weight: bold; padding: 16px 18px;
+      border: 2px solid #00aaff; border-radius: 14px; cursor: pointer;
+      box-shadow: 0 0 16px rgba(0,170,255,0.3); transition: all 0.2s;
+      letter-spacing: 0.05em; white-space: nowrap;
+    }
+    .quick-btn:hover { background: #00aaff; color: #080d18; box-shadow: 0 0 28px rgba(0,170,255,0.6); }
+    #voice-quick-btn { position: relative; }
+    #voice-quick-btn .rec-dot {
+      display: none; position: absolute; top: 8px; right: 10px;
+      width: 10px; height: 10px; border-radius: 50%; background: #ff2222;
+      animation: rec-blink 0.7s infinite;
+    }
+    #voice-quick-btn.recording { border-color: #ff4444; color: #ff4444;
+      box-shadow: 0 0 20px rgba(255,60,60,0.5); background: #1a0000; }
+    #voice-quick-btn.recording .rec-dot { display: block; }
+    @keyframes rec-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
 
     /* ── Chat overlay ── */
     #chat-overlay {
       display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 420px; background: #080d18; border: 1px solid #00aaff;
-      border-radius: 14px; padding: 20px; z-index: 1000; color: #e0eeff;
-      font-family: 'Courier New', monospace; box-shadow: 0 0 40px rgba(0,170,255,0.25);
+      width: min(500px, calc(100vw - 40px)); background: #080d18; border: 2px solid #00aaff;
+      border-radius: 16px; padding: 22px; z-index: 1000; color: #e0eeff;
+      font-family: 'Courier New', monospace; box-shadow: 0 0 50px rgba(0,170,255,0.35);
     }
     #chat-header {
       display: flex; justify-content: space-between; align-items: center;
@@ -119,27 +170,22 @@
     .msg.claude table { border-collapse: collapse; font-size: 0.78rem; width: 100%; margin: 6px 0; }
     .msg.claude th, .msg.claude td { border: 1px solid #1a3a5a; padding: 4px 8px; }
 
+    /* ── Text panel ── */
+    #text-panel { display: block; }
     #input-row { display: flex; gap: 8px; align-items: center; }
     #user-input {
-      flex: 1; padding: 10px 13px; background: #050a12; border: 1px solid #1a3a5a;
+      flex: 1; padding: 14px 13px; background: #050a12; border: 1px solid #1a3a5a;
       border-radius: 8px; color: #e0eeff; font-family: 'Courier New', monospace;
-      font-size: 0.82rem; outline: none; transition: border-color 0.2s;
+      font-size: 0.88rem; outline: none; transition: border-color 0.2s;
     }
     #user-input:focus { border-color: #00aaff; }
     #send-btn {
-      padding: 10px 14px; background: #00aaff; color: #080d18; border: none;
-      border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.82rem;
-      font-weight: bold; cursor: pointer; transition: background 0.2s;
+      padding: 14px 18px; background: #00aaff; color: #080d18; border: none;
+      border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.88rem;
+      font-weight: bold; cursor: pointer; transition: background 0.2s; white-space: nowrap;
     }
     #send-btn:hover { background: #00ccff; }
     #send-btn:disabled { background: #1a3a5a; color: #4a7a9b; cursor: not-allowed; }
-    #mic-btn {
-      padding: 10px 12px; background: #1a2a3a; color: #00aaff; border: 1px solid #00aaff44;
-      border-radius: 8px; font-size: 1rem; cursor: pointer; transition: background 0.2s;
-    }
-    #mic-btn:hover { background: #003a66; }
-    #mic-btn.recording { background: #3a0000; border-color: #ff4444; color: #ff4444; animation: mic-pulse 0.8s infinite; }
-    @keyframes mic-pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
 
     /* ── Safety HUD (Addy's system) ── */
     #safety-hud {
@@ -202,10 +248,19 @@
 
   <!-- Voice status -->
   <div id="voice-status">🎙️ Listening...</div>
+
+  <!-- Recording overlay: compact bar shown at bottom-center while mic is active -->
+  <div id="recording-overlay">
+    <button id="stop-rec-btn">⏹ STOP</button>
+    <div id="rec-label">🔴 Listening — or press <strong>V</strong> / <strong>Space</strong> to stop</div>
+  </div>
   <button id="stop-tts-btn" title="Stop speaking">⏹ Stop</button>
 
-  <!-- Always-visible chat button -->
-  <button id="open-chat-btn">🧪 AI Assistant</button>
+  <!-- Assistant button group -->
+  <div id="assistant-btns">
+    <button class="quick-btn" id="voice-quick-btn">🎙️ Voice<span class="rec-dot"></span></button>
+    <button class="quick-btn" id="text-quick-btn">⌨️ Text</button>
+  </div>
 
   <!-- Safety HUD (Addy's system) -->
   <div id="safety-hud" class="hidden">
@@ -231,10 +286,13 @@
       </div>
     </div>
     <div id="chat-window"></div>
-    <div id="input-row">
-      <input id="user-input" type="text" placeholder="Ask the lab assistant..." />
-      <button id="mic-btn" title="Voice input">🎙️</button>
-      <button id="send-btn">Send</button>
+
+    <!-- Text input panel -->
+    <div id="text-panel">
+      <div id="input-row">
+        <input id="user-input" type="text" placeholder="Ask the lab assistant..." />
+        <button id="send-btn">Send</button>
+      </div>
     </div>
   </div>
 
@@ -265,45 +323,45 @@
     ══════════════════════════════════════════════════════
     -->
 
-    <!-- ZONE 1: Microscope (Biology) -->
+    <!-- ZONE 1: Oscilloscope (Signal Measurement) -->
     <a-sphere class="proximity-zone"
-      data-topic="🔬 Microscope Station"
-      data-system="You are a biology and microscopy lab assistant inside a virtual science lab. Help students understand microscopy techniques, cell biology, and specimen preparation. Keep answers concise and educational."
-      data-prompt="Press E to ask about Microscopy"
+      data-topic="📈 Oscilloscope Station"
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in the OSCILLOSCOPE — measuring and interpreting waveforms, setting timebase and voltage/division, triggering, probe compensation, and reading frequency, amplitude, and phase. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-prompt="Press E to use the Oscilloscope"
       position="-1.5 1.0 -1.0" radius="0.8"
       material="opacity: 0.02; transparent: true; color: #00ff88" visible="true">
     </a-sphere>
-    <a-text value="🔬 Microscope" position="-1.5 1.9 -1.0" align="center" color="#00ff88" width="1.5"></a-text>
+    <a-text value="📈 Oscilloscope" position="-1.5 1.9 -1.0" align="center" color="#00ff88" width="1.5"></a-text>
 
-    <!-- ZONE 2: Beaker Station (Chemistry) -->
+    <!-- ZONE 2: Breadboard (Circuit Building) -->
     <a-sphere class="proximity-zone"
-      data-topic="⚗️ Beaker Station"
-      data-system="You are a chemistry lab assistant inside a virtual science lab. Help students understand chemical reactions, lab safety, titration, and general chemistry concepts. Keep answers concise and educational."
-      data-prompt="Press E to ask about Chemistry"
+      data-topic="🔌 Breadboard Station"
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in BUILDING and TESTING circuits on a breadboard — resistors, capacitors, inductors, diodes, transistors, ICs, series/parallel wiring, Ohm's law, Kirchhoff's laws, and powering circuits safely from the bench supply. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-prompt="Press E to build a Circuit"
       position="1.5 1.0 -1.5" radius="0.8"
       material="opacity: 0.02; transparent: true; color: #ffaa00" visible="true">
     </a-sphere>
-    <a-text value="⚗️ Chemistry" position="1.5 1.9 -1.5" align="center" color="#ffaa00" width="1.5"></a-text>
+    <a-text value="🔌 Breadboard" position="1.5 1.9 -1.5" align="center" color="#ffaa00" width="1.5"></a-text>
 
-    <!-- ZONE 3: Computer Terminal (CS) -->
+    <!-- ZONE 3: Multimeter (Measurement & Calibration) -->
     <a-sphere class="proximity-zone"
-      data-topic="💻 Computer Terminal"
-      data-system="You are a computer science lab assistant inside a virtual science lab. Help students understand programming, algorithms, computer architecture, and software concepts. Keep answers concise and educational."
-      data-prompt="Press E to ask about Computer Science"
+      data-topic="🔧 Multimeter & Calibration"
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in the MULTIMETER and instrument CALIBRATION — measuring voltage, current, resistance, and continuity; selecting ranges; zeroing and calibrating meters; and verifying instrument accuracy against references. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-prompt="Press E to use the Multimeter"
       position="1.5 1.0 0.5" radius="0.8"
       material="opacity: 0.02; transparent: true; color: #00aaff" visible="true">
     </a-sphere>
-    <a-text value="💻 CS Terminal" position="1.5 1.9 0.5" align="center" color="#00aaff" width="1.5"></a-text>
+    <a-text value="🔧 Multimeter" position="1.5 1.9 0.5" align="center" color="#00aaff" width="1.5"></a-text>
 
-    <!-- ZONE 4: Whiteboard (General Science) -->
+    <!-- ZONE 4: Workbench (General Electronics) -->
     <a-sphere class="proximity-zone"
-      data-topic="📋 Whiteboard"
-      data-system="You are a general science lab assistant inside a virtual science lab. Help students with any science topic including physics, biology, chemistry, and mathematics. Keep answers concise and educational."
-      data-prompt="Press E to ask about General Science"
+      data-topic="🛠️ Electronics Workbench"
+      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the general WORKBENCH — help with overall electronics physics lab work: AC/DC theory, the function generator and bench power supply, soldering technique, instrument setup, and electrical lab safety. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
+      data-prompt="Press E for the Workbench"
       position="-1.5 1.0 0.5" radius="0.8"
       material="opacity: 0.02; transparent: true; color: #ff44aa" visible="true">
     </a-sphere>
-    <a-text value="📋 Whiteboard" position="-1.5 1.9 0.5" align="center" color="#ff44aa" width="1.5"></a-text>
+    <a-text value="🛠️ Workbench" position="-1.5 1.9 0.5" align="center" color="#ff44aa" width="1.5"></a-text>
 
     <!--
     ══════════════════════════════════════════════════════
@@ -554,7 +612,6 @@
     const chatTopic      = document.getElementById('chat-topic');
     const userInput      = document.getElementById('user-input');
     const sendBtn        = document.getElementById('send-btn');
-    const micBtn         = document.getElementById('mic-btn');
     const ttsToggleBtn   = document.getElementById('tts-toggle-btn');
     const scene          = document.querySelector('a-scene');
 
@@ -585,14 +642,21 @@
       }
     });
 
-    stopTtsBtn.addEventListener('click', () => {
+    function stopSpeaking() {
       window.speechSynthesis.cancel();
       voiceStatus.style.display = 'none';
       stopTtsBtn.style.display  = 'none';
+    }
+
+    stopTtsBtn.addEventListener('click', stopSpeaking);
+
+    // The status box itself says "click to stop", so make it clickable too.
+    voiceStatus.addEventListener('click', () => {
+      if (voiceStatus.classList.contains('speaking')) stopSpeaking();
     });
 
     // ── Active system prompt ────────────────────────────────────────────
-    let activeSystemPrompt = "You are a helpful science lab assistant inside a virtual lab. Answer student questions clearly and concisely.";
+    let activeSystemPrompt = "You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure.";
 
     // ── Open / Close chat ───────────────────────────────────────────────
     function openChat(topic, systemPrompt) {
@@ -602,7 +666,7 @@
       userInput.focus();
     }
 
-    document.getElementById('open-chat-btn').addEventListener('click', () => openChat(null, null));
+    document.getElementById('text-quick-btn').addEventListener('click',  () => openChat(null, null));
     document.getElementById('close-chat').addEventListener('click', () => { chatOverlay.style.display = 'none'; });
 
     // ── Messages ────────────────────────────────────────────────────────
@@ -663,47 +727,83 @@
     // ── Voice input ─────────────────────────────────────────────────────
     let recognition = null;
     let isRecording = false;
+    let capturedText = '';
+    const voiceQuickBtn    = document.getElementById('voice-quick-btn');
+    const recordingOverlay = document.getElementById('recording-overlay');
+    const stopRecBtn       = document.getElementById('stop-rec-btn');
+    const recLabel         = document.getElementById('rec-label');
+
+    function startRecording() {
+      if (!recognition || isRecording) return;
+      capturedText = '';
+      try { recognition.start(); } catch (_) {}
+    }
+    function stopRecording() {
+      if (!recognition || !isRecording) return;
+      // abort() stops instantly; stop() is queued until the API finalizes (the "idle" wait)
+      try { recognition.abort(); } catch (_) {}
+    }
+
+    function setRecordingState(on) {
+      isRecording = on;
+      if (on) {
+        document.exitPointerLock();
+        recordingOverlay.classList.add('active');
+        voiceQuickBtn.classList.add('recording');
+        voiceQuickBtn.innerHTML = '🎙️ Voice<span class="rec-dot"></span>';
+        ttsEnabled = true;
+        ttsToggleBtn.textContent = '🔊 Voice ON';
+        ttsToggleBtn.classList.add('tts-on');
+      } else {
+        recordingOverlay.classList.remove('active');
+        voiceQuickBtn.classList.remove('recording');
+        voiceQuickBtn.innerHTML = '🎙️ Voice<span class="rec-dot"></span>';
+      }
+    }
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SR();
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      recognition.onstart = () => {
-        isRecording = true;
-        micBtn.classList.add('recording');
-        micBtn.textContent = '⏹️';
-        voiceStatus.style.display = 'block';
-        voiceStatus.className = 'listening';
-        voiceStatus.textContent = '🎙️ Listening...';
-      };
+      recognition.onstart = () => { capturedText = ''; setRecordingState(true); };
+
+      // accumulate transcript live as the user speaks
       recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        userInput.value = transcript;
-        sendMessage(transcript);
+        let finalText = '', interimText = '';
+        for (let i = 0; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalText += t + ' ';
+          else interimText += t;
+        }
+        capturedText = (finalText + interimText).trim();
+        if (recLabel) recLabel.textContent = capturedText ? '🔴 ' + capturedText : '🔴 Listening...';
       };
+
+      recognition.onerror = () => setRecordingState(false);
+
+      // send happens HERE — fires the moment recognition ends, manual or not
       recognition.onend = () => {
-        isRecording = false;
-        micBtn.classList.remove('recording');
-        micBtn.textContent = '🎙️';
-        voiceStatus.style.display = 'none';
+        setRecordingState(false);
+        const text = capturedText.trim();
+        capturedText = '';
+        if (recLabel) recLabel.innerHTML = '🔴 Listening — press <strong>V</strong> / <strong>Space</strong> to stop';
+        if (text) sendMessage(text);
       };
-      recognition.onerror = () => {
-        isRecording = false;
-        micBtn.classList.remove('recording');
-        micBtn.textContent = '🎙️';
-        voiceStatus.style.display = 'none';
-      };
-      micBtn.addEventListener('click', () => {
-        if (isRecording) recognition.stop();
-        else recognition.start();
+
+      // Voice button toggles: press once to start, again to stop
+      voiceQuickBtn.addEventListener('click', () => {
+        if (isRecording) stopRecording(); else startRecording();
       });
+      // stop targets — button, anywhere on the overlay backdrop
+      stopRecBtn.addEventListener('click', (e) => { e.stopPropagation(); stopRecording(); });
+      recordingOverlay.addEventListener('click', stopRecording);
     } else {
-      micBtn.title = 'Voice input not supported. Use Chrome or Edge.';
-      micBtn.style.opacity = '0.4';
-      micBtn.style.cursor = 'not-allowed';
+      voiceQuickBtn.title = 'Voice input not supported. Use Chrome or Edge.';
+      voiceQuickBtn.style.opacity = '0.4';
+      voiceQuickBtn.style.cursor  = 'not-allowed';
     }
 
     // ── AI Proximity Zone Detection ─────────────────────────────────────
@@ -736,6 +836,18 @@
 
     // ── Keyboard shortcuts ──────────────────────────────────────────────
     document.addEventListener('keydown', (e) => {
+      // V toggles recording — works in pointer lock
+      if (e.code === 'KeyV' && chatOverlay.style.display !== 'block') {
+        e.preventDefault();
+        if (isRecording) stopRecording(); else startRecording();
+        return;
+      }
+      // Space also stops recording
+      if (e.code === 'Space' && isRecording) {
+        e.preventDefault();
+        stopRecording();
+        return;
+      }
       if ((e.key === 'e' || e.key === 'E') && activeZone && chatOverlay.style.display !== 'block') {
         openChat(activeZone.dataset.topic, activeZone.dataset.system);
       }
