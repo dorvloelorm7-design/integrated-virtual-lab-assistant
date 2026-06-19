@@ -329,7 +329,7 @@
       data-topic="📈 Oscilloscope Station"
       data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in the OSCILLOSCOPE — measuring and interpreting waveforms, setting timebase and voltage/division, triggering, probe compensation, and reading frequency, amplitude, and phase. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
       data-prompt="Press E to use the Oscilloscope"
-      position="-8.43 1.2 -2.11" radius="1.4">
+      position="-8.43 1.2 -2.11" radius="2.4">
     </a-sphere>
     <a-text value="📈 Oscilloscope" position="-8.43 3.0 -2.11" align="center" color="#00ff88" width="5"></a-text>
 
@@ -338,7 +338,7 @@
       data-topic="🎛️ Power Supply & Function Generator"
       data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station is the stacked BENCH INSTRUMENT RACK — the DC bench power supply and the function/signal generator. Help with setting voltage and current limits, enabling/disabling the output safely, selecting waveform shape, frequency and amplitude, and feeding a signal into a circuit or the oscilloscope. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
       data-prompt="Press E for the Power Supply &amp; Generator"
-      position="2.92 1.2 4.09" radius="1.4">
+      position="2.92 1.2 4.09" radius="2.8">
     </a-sphere>
     <a-text value="🎛️ Power Supply / Generator" position="2.92 2.8 4.09" align="center" color="#ffaa00" width="5"></a-text>
 
@@ -347,7 +347,7 @@
       data-topic="🔧 Measurement &amp; Calibration"
       data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the MEASUREMENT bench — using the multimeter and instrument CALIBRATION: measuring voltage, current, resistance, and continuity; selecting ranges; zeroing and calibrating meters; and verifying instrument accuracy against references. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
       data-prompt="Press E for the Measurement Bench"
-      position="-1.44 1.2 -5.82" radius="1.5">
+      position="-1.44 1.2 -5.82" radius="2.4">
     </a-sphere>
     <a-text value="🔧 Measurement Bench" position="-1.44 2.6 -5.82" align="center" color="#00aaff" width="5"></a-text>
 
@@ -356,7 +356,7 @@
       data-topic="🛠️ Electronics Workbench"
       data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the general WORKBENCH — help with overall electronics physics lab work: AC/DC theory, building and testing circuits, components (resistors, capacitors, diodes, transistors, ICs), Ohm's and Kirchhoff's laws, soldering technique, instrument setup, and electrical lab safety. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
       data-prompt="Press E for the Workbench"
-      position="-1.43 1.2 0.18" radius="1.5">
+      position="-1.43 1.2 0.18" radius="2.2">
     </a-sphere>
     <a-text value="🛠️ Workbench" position="-1.43 2.6 0.18" align="center" color="#ff44aa" width="5"></a-text>
 
@@ -535,6 +535,22 @@
         if (dz !== 0 && (this.blocked(pos.x, pos.z) ||
             this.hitsWall(pos.x, this.last.z, 'z', Math.sign(dz), dz))) {
           pos.z = this.last.z;
+        }
+
+        // De-penetration: if we still ended up inside a box (e.g. slipped in at
+        // a corner), push straight out along the shallowest axis.
+        const p = this.data.pad;
+        for (const b of this.boxes) {
+          if (pos.x > b.minX - p && pos.x < b.maxX + p &&
+              pos.z > b.minZ - p && pos.z < b.maxZ + p) {
+            const dL = pos.x - (b.minX - p), dR = (b.maxX + p) - pos.x;
+            const dB = pos.z - (b.minZ - p), dF = (b.maxZ + p) - pos.z;
+            const m = Math.min(dL, dR, dB, dF);
+            if      (m === dL) pos.x = b.minX - p;
+            else if (m === dR) pos.x = b.maxX + p;
+            else if (m === dB) pos.z = b.minZ - p;
+            else               pos.z = b.maxZ + p;
+          }
         }
 
         // Far backstop so the player can never leave the model entirely.
