@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VR Lab</title>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* ── Loading screen ── */
+    #loading-screen {
+      position: fixed; inset: 0; background: #0a0f1a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.9s ease;
+    }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    .lab-logo { font-size: 2.4rem; font-family: 'Courier New', monospace; color: #00aaff; letter-spacing: 0.15em; margin-bottom: 32px; }
+    .loading-bar-wrap { width: 280px; height: 4px; background: #1a2a3a; border-radius: 2px; overflow: hidden; margin-bottom: 14px; }
+    .loading-bar { height: 100%; width: 0; background: linear-gradient(90deg, #00aaff, #00ffcc); border-radius: 2px; animation: load 2.5s ease forwards; }
+    @keyframes load { to { width: 100%; } }
+    .loading-label { color: #4a7a9b; font-family: 'Courier New', monospace; font-size: 0.8rem; letter-spacing: 0.1em; }
+
+    /* ── Controls hint ── */
+    #controls-hint {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.55); color: #aad4ff; font-family: 'Courier New', monospace;
+      font-size: 0.75rem; padding: 8px 18px; border-radius: 20px; border: 1px solid #1a3a5a;
+      z-index: 100; transition: opacity 0.8s ease;
+    }
+    #controls-hint.hidden { opacity: 0; pointer-events: none; }
+
+    /* ── Proximity prompt ── */
+    #proximity-prompt {
+      display: none;
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75); border: 1px solid #00aaff;
+      color: #00aaff; font-family: 'Courier New', monospace;
+      font-size: 0.85rem; padding: 10px 22px; border-radius: 24px;
+      z-index: 200; pointer-events: none;
+      box-shadow: 0 0 20px rgba(0,170,255,0.3);
+      animation: pulse-border 1.5s infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 10px rgba(0,170,255,0.3); }
+      50% { box-shadow: 0 0 25px rgba(0,170,255,0.7); }
+    }
+
+    /* ── Voice status indicator ── */
+    #voice-status {
+      display: none;
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); border: 1px solid #ff4444;
+      color: #ff4444; font-family: 'Courier New', monospace;
+      font-size: 0.8rem; padding: 8px 20px; border-radius: 20px; z-index: 300;
+    }
+    #voice-status.listening { border-color: #ff4444; color: #ff4444; }
+    #voice-status.speaking { border-color: #00ffcc; color: #00ffcc; cursor: pointer; }
+    #voice-status.speaking:hover { background: rgba(0,30,20,0.9); }
+
+    /* ── TTS stop button ── */
+    #stop-tts-btn {
+      display: none;
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateX(120px);
+      background: #dc3545; border: none; color: white;
+      font-family: 'Courier New', monospace; font-size: 0.78rem; font-weight: bold;
+      padding: 8px 16px; border-radius: 20px; cursor: pointer; z-index: 300;
+      transition: background 0.2s;
+    }
+    #stop-tts-btn:hover { background: #b02a37; }
+
+    /* ── TTS toggle in chat header ── */
+    #tts-toggle-btn {
+      background: none; border: 1px solid #1a3a5a; color: #4a7a9b;
+      font-family: 'Courier New', monospace; font-size: 0.75rem;
+      padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    #tts-toggle-btn.tts-on { border-color: #00ffcc; color: #00ffcc; }
+    #tts-toggle-btn:hover { border-color: #00aaff; color: #00aaff; }
+
+    /* ── Open chat button ── */
+    #open-chat-btn {
+      position: fixed; bottom: 60px; right: 24px;
+      background: #00aaff; color: #080d18; font-family: 'Courier New', monospace;
+      font-size: 0.82rem; font-weight: bold; padding: 11px 18px;
+      border: none; border-radius: 10px; cursor: pointer; z-index: 200;
+      box-shadow: 0 0 20px rgba(0,170,255,0.4); transition: background 0.2s;
+    }
+    #open-chat-btn:hover { background: #00ccff; }
+
+    /* ── Chat overlay ── */
+    #chat-overlay {
+      display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 420px; background: #080d18; border: 1px solid #00aaff;
+      border-radius: 14px; padding: 20px; z-index: 1000; color: #e0eeff;
+      font-family: 'Courier New', monospace; box-shadow: 0 0 40px rgba(0,170,255,0.25);
+    }
+    #chat-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; border-bottom: 1px solid #1a3a5a; padding-bottom: 12px;
+    }
+    #chat-topic { font-size: 0.95rem; color: #00aaff; letter-spacing: 0.08em; }
+    #close-chat { background: none; border: none; color: #4a7a9b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
+    #close-chat:hover { color: #00aaff; }
+
+    #chat-window {
+      height: 240px; overflow-y: auto; background: #050a12;
+      border-radius: 8px; padding: 12px; margin-bottom: 14px;
+      scrollbar-width: thin; scrollbar-color: #1a3a5a transparent;
+    }
+    .msg { margin: 8px 0; padding: 9px 13px; border-radius: 8px; font-size: 0.82rem; line-height: 1.55; max-width: 90%; }
+    .msg.user { background: #003a66; border: 1px solid #00aaff44; margin-left: auto; text-align: right; }
+    .msg.claude { background: #0d1e30; border: 1px solid #1a3a5a; }
+    .msg.claude h1, .msg.claude h2, .msg.claude h3 { font-size: 0.9rem; color: #00ccff; margin: 6px 0 4px; }
+    .msg.claude p { margin: 4px 0; }
+    .msg.claude ul, .msg.claude ol { padding-left: 18px; margin: 4px 0; }
+    .msg.claude code { background: #0a1a2a; padding: 1px 5px; border-radius: 3px; font-size: 0.78rem; color: #00ffcc; }
+    .msg.claude table { border-collapse: collapse; font-size: 0.78rem; width: 100%; margin: 6px 0; }
+    .msg.claude th, .msg.claude td { border: 1px solid #1a3a5a; padding: 4px 8px; }
+
+    #input-row { display: flex; gap: 8px; align-items: center; }
+    #user-input {
+      flex: 1; padding: 10px 13px; background: #050a12; border: 1px solid #1a3a5a;
+      border-radius: 8px; color: #e0eeff; font-family: 'Courier New', monospace;
+      font-size: 0.82rem; outline: none; transition: border-color 0.2s;
+    }
+    #user-input:focus { border-color: #00aaff; }
+    #send-btn {
+      padding: 10px 14px; background: #00aaff; color: #080d18; border: none;
+      border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.82rem;
+      font-weight: bold; cursor: pointer; transition: background 0.2s;
+    }
+    #send-btn:hover { background: #00ccff; }
+    #send-btn:disabled { background: #1a3a5a; color: #4a7a9b; cursor: not-allowed; }
+    #mic-btn {
+      padding: 10px 12px; background: #1a2a3a; color: #00aaff; border: 1px solid #00aaff44;
+      border-radius: 8px; font-size: 1rem; cursor: pointer; transition: background 0.2s;
+    }
+    #mic-btn:hover { background: #003a66; }
+    #mic-btn.recording { background: #3a0000; border-color: #ff4444; color: #ff4444; animation: mic-pulse 0.8s infinite; }
+    @keyframes mic-pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+    /* ── Safety HUD (Addy's system) ── */
+    #safety-hud {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      width: min(520px, calc(100vw - 32px));
+      padding: 14px 18px; border-radius: 12px;
+      border: 2px solid var(--hud-color, #ffb74d);
+      background: rgba(10, 14, 20, 0.92);
+      color: #f5f7fa;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      transition: opacity 0.2s ease, border-color 0.2s ease;
+      z-index: 5000; pointer-events: none;
+    }
+    #safety-hud.hidden { opacity: 0; visibility: hidden; }
+    #safety-hud.visible { opacity: 1; visibility: visible; }
+    #safety-hud.inner { animation: safety-pulse 1s ease-in-out infinite; }
+    @keyframes safety-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hud-color) 40%, transparent); }
+      50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--hud-color) 0%, transparent); }
+    }
+    #hud-severity {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.08em; color: var(--hud-color, #ffb74d); margin-bottom: 4px;
+    }
+    #hud-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; font-family: 'Courier New', monospace; }
+    #hud-message { margin: 0 0 6px; font-size: 14px; line-height: 1.45; color: #d8dee9; font-family: 'Courier New', monospace; }
+    #hud-distance { margin: 0; font-size: 12px; color: #8b949e; font-family: 'Courier New', monospace; }
+
+    /* ── Incident log panel ── */
+    #incident-panel {
+      position: fixed; bottom: 16px; left: 16px;
+      width: min(320px, calc(100vw - 32px));
+      padding: 12px 14px; border-radius: 10px;
+      background: rgba(10, 14, 20, 0.85);
+      border: 1px solid #1a3a5a;
+      color: #e6edf3; font-size: 12px; z-index: 4000;
+      font-family: 'Courier New', monospace;
+    }
+    #incident-panel h3 { margin: 0 0 8px; font-size: 11px; color: #4a7a9b; letter-spacing: 0.08em; }
+    #incident-log { margin: 0; padding-left: 16px; max-height: 100px; overflow-y: auto; }
+    #incident-log li { margin-bottom: 4px; font-size: 11px; color: #8b949e; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading screen -->
+  <div id="loading-screen">
+    <div class="lab-logo">⬡ VR Lab</div>
+    <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+    <div class="loading-label">Initializing lab environment...</div>
+  </div>
+
+  <!-- Controls hint -->
+  <div id="controls-hint">
+    WASD / Arrow keys to move &nbsp;·&nbsp; Mouse to look &nbsp;·&nbsp; Walk near objects to interact
+  </div>
+
+  <!-- Proximity prompt (shown when near an AI zone) -->
+  <div id="proximity-prompt">Press E to talk to the assistant</div>
+
+  <!-- Voice status -->
+  <div id="voice-status">🎙️ Listening...</div>
+  <button id="stop-tts-btn" title="Stop speaking">⏹ Stop</button>
+
+  <!-- Always-visible chat button -->
+  <button id="open-chat-btn">🧪 AI Assistant</button>
+
+  <!-- Safety HUD (Addy's system) -->
+  <div id="safety-hud" class="hidden">
+    <div id="hud-severity">CAUTION</div>
+    <h1 id="hud-title">Hazard</h1>
+    <p id="hud-message">Move away from the hazard zone.</p>
+    <p id="hud-distance">—</p>
+  </div>
+
+  <!-- Incident log panel -->
+  <div id="incident-panel">
+    <h3>⚠ SAFETY LOG</h3>
+    <ul id="incident-log"></ul>
+  </div>
+
+  <!-- AI Chat Overlay -->
+  <div id="chat-overlay">
+    <div id="chat-header">
+      <span id="chat-topic">🧪 Lab Assistant</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
+        <button id="close-chat">✕</button>
+      </div>
+    </div>
+    <div id="chat-window"></div>
+    <div id="input-row">
+      <input id="user-input" type="text" placeholder="Ask the lab assistant..." />
+      <button id="mic-btn" title="Voice input">🎙️</button>
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <a-scene
+    safety-manager
+    background="color: #0a0f1a"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true; toneMapping: ACESFilmic; exposure: 1.5"
+    fog="type: linear; color: #0a0f1a; near: 8; far: 20"
+  >
+    <a-assets timeout="30000">
+      <a-asset-item id="lab-model" src="67.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- LAB MODEL -->
+    <a-entity id="lab" gltf-model="#lab-model" scale="1.5 1.5 1.5" position="0 0 0"></a-entity>
+
+    <!-- LIGHTING -->
+    <a-light type="ambient" color="#ffffff" intensity="0.2"></a-light>
+    <a-light type="point" color="#d0eeff" intensity="5.0" distance="12" decay="2" position="0 2.5 0"></a-light>
+    <a-light type="point" color="#aaccff" intensity="0.6" distance="8" decay="2" position="0 2.2 2"></a-light>
+    <a-light type="point" color="#ffe8b0" intensity="0.3" distance="5" decay="2" position="2 1.2 -1"></a-light>
+
+    <!--
+    ══════════════════════════════════════════════════════
+    AI PROXIMITY ZONES
+    Walk near these → press E → opens AI chat
+    Adjust position="X Y Z" to match your .glb model
+    ══════════════════════════════════════════════════════
+    -->
+
+    <!-- ZONE 1: Microscope (Biology) -->
+    <a-sphere class="proximity-zone"
+      data-topic="🔬 Microscope Station"
+      data-system="You are a biology and microscopy lab assistant inside a virtual science lab. Help students understand microscopy techniques, cell biology, and specimen preparation. Keep answers concise and educational."
+      data-prompt="Press E to ask about Microscopy"
+      position="-1.5 1.0 -1.0" radius="0.8"
+      material="opacity: 0.02; transparent: true; color: #00ff88" visible="true">
+    </a-sphere>
+    <a-text value="🔬 Microscope" position="-1.5 1.9 -1.0" align="center" color="#00ff88" width="1.5"></a-text>
+
+    <!-- ZONE 2: Beaker Station (Chemistry) -->
+    <a-sphere class="proximity-zone"
+      data-topic="⚗️ Beaker Station"
+      data-system="You are a chemistry lab assistant inside a virtual science lab. Help students understand chemical reactions, lab safety, titration, and general chemistry concepts. Keep answers concise and educational."
+      data-prompt="Press E to ask about Chemistry"
+      position="1.5 1.0 -1.5" radius="0.8"
+      material="opacity: 0.02; transparent: true; color: #ffaa00" visible="true">
+    </a-sphere>
+    <a-text value="⚗️ Chemistry" position="1.5 1.9 -1.5" align="center" color="#ffaa00" width="1.5"></a-text>
+
+    <!-- ZONE 3: Computer Terminal (CS) -->
+    <a-sphere class="proximity-zone"
+      data-topic="💻 Computer Terminal"
+      data-system="You are a computer science lab assistant inside a virtual science lab. Help students understand programming, algorithms, computer architecture, and software concepts. Keep answers concise and educational."
+      data-prompt="Press E to ask about Computer Science"
+      position="1.5 1.0 0.5" radius="0.8"
+      material="opacity: 0.02; transparent: true; color: #00aaff" visible="true">
+    </a-sphere>
+    <a-text value="💻 CS Terminal" position="1.5 1.9 0.5" align="center" color="#00aaff" width="1.5"></a-text>
+
+    <!-- ZONE 4: Whiteboard (General Science) -->
+    <a-sphere class="proximity-zone"
+      data-topic="📋 Whiteboard"
+      data-system="You are a general science lab assistant inside a virtual science lab. Help students with any science topic including physics, biology, chemistry, and mathematics. Keep answers concise and educational."
+      data-prompt="Press E to ask about General Science"
+      position="-1.5 1.0 0.5" radius="0.8"
+      material="opacity: 0.02; transparent: true; color: #ff44aa" visible="true">
+    </a-sphere>
+    <a-text value="📋 Whiteboard" position="-1.5 1.9 0.5" align="center" color="#ff44aa" width="1.5"></a-text>
+
+    <!--
+    ══════════════════════════════════════════════════════
+    SAFETY HAZARD ZONES (Addy's system)
+    These trigger the safety HUD when approached
+    Adjust position="X Y Z" to match actual hazard locations
+    ══════════════════════════════════════════════════════
+    -->
+
+    <!-- Chemical Storage -->
+    <a-entity id="hazard-chemical-shelf" position="-3.2 0 -3"
+      hazard-zone="type: chemical; severity: danger; label: Chemical Storage;
+        message: Flammable and corrosive chemicals stored here. Do not open containers without PPE.;
+        outerRadius: 2.5; innerRadius: 1.0">
+      <a-box width="1.2" height="1.8" depth="0.5" color="#6a4c93"></a-box>
+      <a-sphere class="hazard-indicator" position="0 0.9 0" radius="2.5"
+        material="color: #ef5350; transparent: true; opacity: 0.06; side: double"></a-sphere>
+      <a-text value="⚠ Chemical Storage" align="center" color="#ff4444" position="0 2.1 0" scale="0.5 0.5 0.5"></a-text>
+    </a-entity>
+
+    <!-- Fume Hood -->
+    <a-entity id="hazard-fume-hood" position="3.5 0 -4.5"
+      hazard-zone="type: ventilation; severity: danger; label: Fume Hood Zone;
+        message: Never put your head inside a running fume hood. Keep sash at safe height.;
+        outerRadius: 2; innerRadius: 0.9">
+      <a-box width="2" height="2.2" depth="0.8" color="#457b9d"></a-box>
+      <a-box width="2.2" height="0.15" depth="1" color="#1d3557" position="0 2.1 0.1"></a-box>
+      <a-sphere class="hazard-indicator" position="0 1 0.8" radius="2"
+        material="color: #ef5350; transparent: true; opacity: 0.06; side: double"></a-sphere>
+      <a-text value="⚠ Fume Hood" align="center" color="#ff4444" position="0 2.5 0.5" scale="0.5 0.5 0.5"></a-text>
+    </a-entity>
+
+    <!-- Hot Plate -->
+    <a-entity id="hazard-hot-plate" position="0.8 1 -1"
+      hazard-zone="type: heat; severity: caution; label: Hot Plate;
+        message: Surface may exceed 300°C. Do not touch. Keep flammable materials away.;
+        outerRadius: 1.8; innerRadius: 0.7">
+      <a-cylinder radius="0.25" height="0.08" color="#333"></a-cylinder>
+      <a-cylinder radius="0.2" height="0.02" color="#ef5350" position="0 0.05 0"></a-cylinder>
+      <a-sphere class="hazard-indicator" radius="1.8"
+        material="color: #ffb74d; transparent: true; opacity: 0.06; side: double"></a-sphere>
+      <a-text value="⚠ Hot Plate" align="center" color="#ffaa00" position="0 0.35 0" scale="0.35 0.35 0.35"></a-text>
+    </a-entity>
+
+    <!-- Centrifuge -->
+    <a-entity id="hazard-centrifuge" position="-1.2 0.55 2.5"
+      hazard-zone="type: mechanical; severity: caution; label: Centrifuge;
+        message: Rotor zone — wait until fully stopped before opening lid.;
+        outerRadius: 2; innerRadius: 0.8">
+      <a-cylinder radius="0.45" height="0.5" color="#495057"></a-cylinder>
+      <a-sphere class="hazard-indicator" position="0 0.25 0" radius="2"
+        material="color: #ffb74d; transparent: true; opacity: 0.06; side: double"></a-sphere>
+      <a-text value="⚠ Centrifuge" align="center" color="#ffaa00" position="0 0.85 0" scale="0.4 0.4 0.4"></a-text>
+    </a-entity>
+
+    <!-- Wet Floor -->
+    <a-entity id="hazard-wet-floor" position="2 0.01 1.5"
+      hazard-zone="type: slip; severity: info; label: Wet Floor;
+        message: Slip hazard — walk slowly and report spills immediately.;
+        outerRadius: 2.2; innerRadius: 1.2">
+      <a-plane rotation="-90 0 0" width="2" height="1.5" color="#74c0fc" opacity="0.7"></a-plane>
+      <a-cone radius-bottom="0.15" radius-top="0" height="0.4" color="#ffd43b" position="0 0.2 0"></a-cone>
+      <a-sphere class="hazard-indicator" radius="2.2"
+        material="color: #4fc3f7; transparent: true; opacity: 0.06; side: double"></a-sphere>
+      <a-text value="⚠ Wet Floor" align="center" color="#4fc3f7" position="0 0.6 0" scale="0.4 0.4 0.4"></a-text>
+    </a-entity>
+
+    <!-- Bio Waste -->
+    <a-entity id="hazard-bio-waste" position="-4.5 0 2"
+      hazard-zone="type: biological; severity: danger; label: Biohazard Waste;
+        message: Do not overfill or open without training. Use designated disposal only.;
+        outerRadius: 1.6; innerRadius: 0.6">
+      <a-cylinder radius="0.35" height="0.9" color="#ffd166"></a-cylinder>
+      <a-sphere class="hazard-indicator" position="0 0.45 0" radius="1.6"
+        material="color: #ef5350; transparent: true; opacity: 0.06; side: double"></a-sphere>
+      <a-text value="⚠ Bio Waste" align="center" color="#ff4444" position="0 0.65 0" scale="0.3 0.3 0.3"></a-text>
+    </a-entity>
+
+    <!-- CAMERA RIG -->
+    <a-entity id="rig" position="0.06 0 1.5" movement-controls="speed: 0.05; fly: false">
+      <a-camera id="camera" position="0 1.65 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
+        <a-cursor color="#7df" opacity="0.6" fuse="false" raycaster="objects: .interactive"></a-cursor>
+      </a-camera>
+    </a-entity>
+
+  </a-scene>
+
+  <!-- Addy's Safety System -->
+  <script>
+    const SEVERITY = {
+      info:    { color: '#4fc3f7', label: 'INFO',    priority: 1 },
+      caution: { color: '#ffb74d', label: 'CAUTION', priority: 2 },
+      danger:  { color: '#ef5350', label: 'DANGER',  priority: 3 },
+    };
+
+    AFRAME.registerComponent('hazard-zone', {
+      schema: {
+        type:        { default: 'general' },
+        severity:    { default: 'caution' },
+        message:     { default: 'Hazard nearby. Proceed with care.' },
+        outerRadius: { default: 2.5 },
+        innerRadius: { default: 1.0 },
+        label:       { default: 'Hazard' },
+      },
+      init() {
+        this.playerEl  = null;
+        this.level     = 'none';
+        this.tmpCam    = new THREE.Vector3();
+        this.tmpHazard = new THREE.Vector3();
+        this.indicator = this.el.querySelector('.hazard-indicator');
+        if (this.indicator) {
+          this.indicator.setAttribute('radius', this.data.outerRadius);
+          const sev = SEVERITY[this.data.severity] || SEVERITY.caution;
+          this.indicator.setAttribute('material', 'color', sev.color);
+        }
+      },
+      tick() {
+        if (!this.playerEl) {
+          this.playerEl = document.querySelector('#camera');
+          if (!this.playerEl) return;
+        }
+        this.playerEl.object3D.getWorldPosition(this.tmpCam);
+        this.el.object3D.getWorldPosition(this.tmpHazard);
+        const distance = this.tmpCam.distanceTo(this.tmpHazard);
+
+        let level = 'none';
+        if (distance <= this.data.innerRadius)       level = 'inner';
+        else if (distance <= this.data.outerRadius)  level = 'outer';
+
+        if (level === this.level) return;
+        this.level = level;
+
+        this.el.emit('hazard-proximity', {
+          hazardId: this.el.id, level, distance,
+          type: this.data.type, severity: this.data.severity,
+          message: this.data.message, label: this.data.label,
+          innerRadius: this.data.innerRadius, outerRadius: this.data.outerRadius,
+        }, true);
+
+        if (this.indicator) {
+          const pulse = level === 'inner' ? 0.35 : level === 'outer' ? 0.18 : 0.06;
+          this.indicator.setAttribute('material', 'opacity', pulse);
+        }
+      },
+    });
+
+    AFRAME.registerComponent('safety-manager', {
+      schema: { cooldownMs: { default: 2500 } },
+      init() {
+        this.activeHazards  = new Map();
+        this.lastAlertKey   = '';
+        this.lastAlertTime  = 0;
+        this.incidents      = [];
+        this.hud            = document.getElementById('safety-hud');
+        this.hudSeverity    = document.getElementById('hud-severity');
+        this.hudTitle       = document.getElementById('hud-title');
+        this.hudMessage     = document.getElementById('hud-message');
+        this.hudDistance    = document.getElementById('hud-distance');
+        this.incidentLog    = document.getElementById('incident-log');
+        this.beepCtx        = null;
+        this.el.addEventListener('hazard-proximity', (evt) => this.onHazardProximity(evt.detail));
+      },
+      onHazardProximity(detail) {
+        const { hazardId, level } = detail;
+        if (level === 'none') this.activeHazards.delete(hazardId);
+        else                  this.activeHazards.set(hazardId, detail);
+        this.updateHud();
+      },
+      getTopHazard() {
+        let top = null;
+        for (const detail of this.activeHazards.values()) {
+          if (!top) { top = detail; continue; }
+          const topP   = SEVERITY[top.severity]?.priority    || 0;
+          const detP   = SEVERITY[detail.severity]?.priority || 0;
+          const topL   = top.level    === 'inner' ? 2 : 1;
+          const detL   = detail.level === 'inner' ? 2 : 1;
+          if (detP > topP || (detP === topP && detL > topL) ||
+              (detP === topP && detL === topL && detail.distance < top.distance)) {
+            top = detail;
+          }
+        }
+        return top;
+      },
+      updateHud() {
+        const top = this.getTopHazard();
+        if (!top) {
+          this.hud.classList.remove('visible', 'inner', 'outer');
+          this.hud.classList.add('hidden');
+          this.lastAlertKey = '';
+          return;
+        }
+        const sev    = SEVERITY[top.severity] || SEVERITY.caution;
+        const prefix = top.level === 'inner' ? 'Too close — ' : 'Approaching — ';
+        this.hud.classList.remove('hidden');
+        this.hud.classList.add('visible', top.level);
+        this.hud.style.setProperty('--hud-color', sev.color);
+        this.hudSeverity.textContent = sev.label;
+        this.hudTitle.textContent    = top.label;
+        this.hudMessage.textContent  = prefix + top.message;
+        this.hudDistance.textContent = top.distance.toFixed(1) + ' m away · ' + top.type.replace(/-/g, ' ');
+
+        const alertKey = top.hazardId + ':' + top.level;
+        const now = Date.now();
+        if (alertKey !== this.lastAlertKey || now - this.lastAlertTime > this.data.cooldownMs) {
+          this.lastAlertKey  = alertKey;
+          this.lastAlertTime = now;
+          this.playBeep(top.severity, top.level);
+          this.logIncident(top);
+        }
+      },
+      logIncident(detail) {
+        this.incidents.unshift({
+          time: new Date().toLocaleTimeString(),
+          label: detail.label, level: detail.level, severity: detail.severity,
+        });
+        this.incidents = this.incidents.slice(0, 6);
+        if (this.incidentLog) {
+          this.incidentLog.innerHTML = this.incidents.map(i =>
+            `<li><strong>${i.time}</strong> [${i.severity.toUpperCase()}] ${i.label} — ${i.level} zone</li>`
+          ).join('');
+        }
+      },
+      playBeep(severity, level) {
+        try {
+          if (!this.beepCtx) this.beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const ctx  = this.beepCtx;
+          const osc  = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const freq = severity === 'danger' ? 880 : severity === 'caution' ? 660 : 440;
+          const dur  = level === 'inner' ? 0.18 : 0.1;
+          osc.type = 'sine'; osc.frequency.value = freq; gain.gain.value = 0.08;
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(); osc.stop(ctx.currentTime + dur);
+        } catch (_) {}
+      },
+    });
+  </script>
+
+  <script>
+    // ── DOM refs ────────────────────────────────────────────────────────
+    const loadingScreen  = document.getElementById('loading-screen');
+    const controlsHint   = document.getElementById('controls-hint');
+    const proximityPrompt = document.getElementById('proximity-prompt');
+    const voiceStatus    = document.getElementById('voice-status');
+    const stopTtsBtn     = document.getElementById('stop-tts-btn');
+    const chatOverlay    = document.getElementById('chat-overlay');
+    const chatWindow     = document.getElementById('chat-window');
+    const chatTopic      = document.getElementById('chat-topic');
+    const userInput      = document.getElementById('user-input');
+    const sendBtn        = document.getElementById('send-btn');
+    const micBtn         = document.getElementById('mic-btn');
+    const ttsToggleBtn   = document.getElementById('tts-toggle-btn');
+    const scene          = document.querySelector('a-scene');
+
+    // ── Loading screen ──────────────────────────────────────────────────
+    scene.addEventListener('loaded', () => {
+      setTimeout(() => {
+        loadingScreen.classList.add('hidden');
+        setTimeout(() => loadingScreen.style.display = 'none', 900);
+      }, 2600);
+      setInterval(checkProximity, 300);
+    });
+    setTimeout(() => controlsHint.classList.add('hidden'), 7000);
+
+    // ── TTS state ───────────────────────────────────────────────────────
+    let ttsEnabled = false;
+
+    ttsToggleBtn.addEventListener('click', () => {
+      ttsEnabled = !ttsEnabled;
+      if (ttsEnabled) {
+        ttsToggleBtn.textContent = '🔊 Voice ON';
+        ttsToggleBtn.classList.add('tts-on');
+      } else {
+        ttsToggleBtn.textContent = '🔇 Voice OFF';
+        ttsToggleBtn.classList.remove('tts-on');
+        window.speechSynthesis.cancel();
+        voiceStatus.style.display = 'none';
+        stopTtsBtn.style.display  = 'none';
+      }
+    });
+
+    stopTtsBtn.addEventListener('click', () => {
+      window.speechSynthesis.cancel();
+      voiceStatus.style.display = 'none';
+      stopTtsBtn.style.display  = 'none';
+    });
+
+    // ── Active system prompt ────────────────────────────────────────────
+    let activeSystemPrompt = "You are a helpful science lab assistant inside a virtual lab. Answer student questions clearly and concisely.";
+
+    // ── Open / Close chat ───────────────────────────────────────────────
+    function openChat(topic, systemPrompt) {
+      if (topic) { chatTopic.textContent = topic; activeSystemPrompt = systemPrompt; }
+      document.exitPointerLock();
+      chatOverlay.style.display = 'block';
+      userInput.focus();
+    }
+
+    document.getElementById('open-chat-btn').addEventListener('click', () => openChat(null, null));
+    document.getElementById('close-chat').addEventListener('click', () => { chatOverlay.style.display = 'none'; });
+
+    // ── Messages ────────────────────────────────────────────────────────
+    function addMessage(text, sender) {
+      const div = document.createElement('div');
+      div.classList.add('msg', sender);
+      if (sender === 'claude') div.innerHTML = marked.parse(text);
+      else div.textContent = text;
+      chatWindow.appendChild(div);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // ── Voice output ────────────────────────────────────────────────────
+    function speakText(text) {
+      if (!window.speechSynthesis || !ttsEnabled) return;
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/[#*`]/g, '');
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.rate = 1.0; utterance.pitch = 1.0;
+      utterance.onstart = () => {
+        voiceStatus.style.display = 'block';
+        voiceStatus.className = 'speaking';
+        voiceStatus.textContent = '🔊 Speaking... (click to stop)';
+        stopTtsBtn.style.display = 'block';
+      };
+      utterance.onend = () => { voiceStatus.style.display = 'none'; stopTtsBtn.style.display = 'none'; };
+      utterance.onerror = () => { voiceStatus.style.display = 'none'; stopTtsBtn.style.display = 'none'; };
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // ── Send message ────────────────────────────────────────────────────
+    async function sendMessage(messageText) {
+      const message = messageText || userInput.value.trim();
+      if (!message) return;
+      addMessage(message, 'user');
+      userInput.value = '';
+      sendBtn.disabled = true;
+      sendBtn.textContent = '...';
+      try {
+        const response = await fetch('http://localhost:3000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, systemPrompt: activeSystemPrompt })
+        });
+        const data = await response.json();
+        addMessage(data.reply, 'claude');
+        speakText(data.reply);
+      } catch (err) {
+        addMessage('⚠️ Could not reach the server. Make sure server.js is running.', 'claude');
+      }
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send';
+    }
+
+    sendBtn.addEventListener('click', () => sendMessage());
+    userInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+    // ── Voice input ─────────────────────────────────────────────────────
+    let recognition = null;
+    let isRecording = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        micBtn.textContent = '⏹️';
+        voiceStatus.style.display = 'block';
+        voiceStatus.className = 'listening';
+        voiceStatus.textContent = '🎙️ Listening...';
+      };
+      recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        userInput.value = transcript;
+        sendMessage(transcript);
+      };
+      recognition.onend = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.textContent = '🎙️';
+        voiceStatus.style.display = 'none';
+      };
+      recognition.onerror = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.textContent = '🎙️';
+        voiceStatus.style.display = 'none';
+      };
+      micBtn.addEventListener('click', () => {
+        if (isRecording) recognition.stop();
+        else recognition.start();
+      });
+    } else {
+      micBtn.title = 'Voice input not supported. Use Chrome or Edge.';
+      micBtn.style.opacity = '0.4';
+      micBtn.style.cursor = 'not-allowed';
+    }
+
+    // ── AI Proximity Zone Detection ─────────────────────────────────────
+    const zones = document.querySelectorAll('.proximity-zone');
+    let activeZone = null;
+
+    function checkProximity() {
+      const rig = document.getElementById('rig');
+      if (!rig || !rig.object3D) return;
+      const playerPos = rig.object3D.position;
+      let foundZone = null;
+      zones.forEach(zone => {
+        const zonePos = zone.object3D.position;
+        const radius  = parseFloat(zone.getAttribute('radius')) || 0.8;
+        const dx = playerPos.x - zonePos.x;
+        const dz = playerPos.z - zonePos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < radius + 0.3) foundZone = zone;
+      });
+      if (foundZone !== activeZone) {
+        activeZone = foundZone;
+        if (activeZone) {
+          proximityPrompt.textContent = activeZone.dataset.prompt;
+          proximityPrompt.style.display = 'block';
+        } else {
+          proximityPrompt.style.display = 'none';
+        }
+      }
+    }
+
+    // ── Keyboard shortcuts ──────────────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'e' || e.key === 'E') && activeZone && chatOverlay.style.display !== 'block') {
+        openChat(activeZone.dataset.topic, activeZone.dataset.system);
+      }
+      if (e.key === 'Escape' && chatOverlay.style.display === 'block') {
+        chatOverlay.style.display = 'none';
+      }
+    });
+
+  </script>
+</body>
+</html>
