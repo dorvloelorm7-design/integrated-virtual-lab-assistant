@@ -14,7 +14,8 @@ try {
 
 const Anthropic = require("@anthropic-ai/sdk");
 
-const PORT = 3000;
+// Hosts like Render/Railway assign the port via the PORT env var; fall back to 3000 locally.
+const PORT = process.env.PORT || 3000;
 const MODEL = "claude-opus-4-8";
 
 // Reads the key from the ANTHROPIC_API_KEY environment variable.
