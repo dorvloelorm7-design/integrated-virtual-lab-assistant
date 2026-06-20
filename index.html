@@ -398,8 +398,11 @@
     Position: left wall near entrance; rotate so face shows inward.
     ══════════════════════════════════════════════════════
     -->
+    <!-- Portal lies flat on the physical tablet (screen faces up, Blender confirms
+         the tablet has Rx=-90° making it horizontal in A-Frame world space).
+         Auto-align script below finds the exact Y and snaps it at runtime. -->
     <a-entity id="website-portal" class="interactive" visible="false"
-      position="8.8 2.3 -6.2" rotation="0 -90 0" scale="0.4 0.4 0.4">
+      position="9.0 1.5 -6.3" rotation="-90 0 0" scale="1.0 1.0 1.0">
 
       <!-- Screen bezel -->
       <a-plane width="1.55" height="1.02"
@@ -898,12 +901,19 @@
 
     function openChat(topic, systemPrompt) {
       if (topic) { chatTopic.textContent = topic; activeSystemPrompt = systemPrompt; }
-      if (isVR) return; // VR uses the 3D HUD panel instead of the DOM overlay
-      // Pause pointer lock so the overlay can receive mouse clicks and keyboard input.
+      if (isVR) {
+        // In VR the DOM overlay is hidden — update the 3D HUD instead so the
+        // user can see the station context and knows to press the trigger.
+        if (topic) {
+          vrTopic.setAttribute('value', topic);
+          vrMsg.setAttribute('value', 'Station selected!\nPress the right trigger and speak your question.');
+          vrStatus.setAttribute('value', '[ right trigger = start / stop voice ]');
+        }
+        return;
+      }
       document.exitPointerLock();
       cameraEl.setAttribute('look-controls', 'pointerLockEnabled: false');
       chatOverlay.style.display = 'block';
-      // Delay focus until pointer lock is fully released (async browser event).
       setTimeout(() => userInput.focus(), 150);
     }
 
@@ -1041,10 +1051,12 @@
         ttsEnabled = true;
         ttsToggleBtn.textContent = '🔊 Voice ON';
         ttsToggleBtn.classList.add('tts-on');
+        if (isVR) vrStatus.setAttribute('value', '🔴 Listening… press trigger again to send');
       } else {
         recordingOverlay.classList.remove('active');
         voiceQuickBtn.classList.remove('recording');
         voiceQuickBtn.innerHTML = '🎙️ Voice<span class="rec-dot"></span>';
+        if (isVR) vrStatus.setAttribute('value', '[ right trigger = start / stop voice ]');
       }
     }
 
@@ -1073,6 +1085,8 @@
       recognition.onerror = (e) => {
         if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(e.error)) {
           hardError = e.error;
+          // Surface the error on the VR HUD immediately — DOM error labels are hidden in VR.
+          if (isVR) vrStatus.setAttribute('value', '⚠️ Mic error: ' + e.error + ' — check browser permissions');
         }
       };
 
@@ -1096,13 +1110,15 @@
         if (hardError || quickEnds >= 3) {
           setRecordingState(false);
           const msg =
-            (hardError === 'not-allowed' || hardError === 'service-not-allowed')
-              ? '🚫 Microphone blocked — allow mic access for this site in your browser.'
-            : hardError === 'audio-capture'
-              ? '🚫 No microphone detected.'
-              : '🚫 Voice input isn’t available in this browser. Try Chrome or Edge, or use the Text button.';
-          quickEnds = 0; hardError = '';
+            (hardError === ‘not-allowed’ || hardError === ‘service-not-allowed’)
+              ? ‘🚫 Mic blocked — allow microphone access in your browser settings.’
+            : hardError === ‘audio-capture’
+              ? ‘🚫 No microphone detected.’
+              : ‘🚫 Voice unavailable in this browser — try Chrome/Edge, or use the Text button.’;
+          quickEnds = 0; hardError = ‘’;
           if (recLabel) recLabel.textContent = msg;
+          // Show the error inside the VR HUD so the user can see it in the headset.
+          if (isVR) vrStatus.setAttribute(‘value’, msg);
           return;
         }
 
@@ -1272,55 +1288,57 @@
         lab.object3D.traverse(o => { if (o.isMesh) meshes.push(o); });
 
         const ray = new THREE.Raycaster();
-        ray.far = 6;
-        const dir = new THREE.Vector3(1, 0, 0); // toward right wall (+X)
+        // Blender confirms tablet is horizontal (Rx=-90°, screen faces +Y in A-Frame).
+        // Shoot DOWNWARD so we hit the top face, not the side edge.
+        const downDir = new THREE.Vector3(0, -1, 0);
+        ray.far = 4;
 
-        // Grid of origins around where the player stands at the tablet.
-        // Player readings: X≈8.07, Z≈-6.2. Camera eye is Y=2.4.
-        for (const oy of [2.4, 2.1, 1.8, 2.7]) {
-          for (const oz of [-6.2, -5.8, -6.6, -5.4, -7.0]) {
-            ray.set(new THREE.Vector3(7.5, oy, oz), dir);
+        // Grid centred on the known tablet area (player readings X≈8.1, Z≈-6.3;
+        // tablet extends to the right wall so search X=8.5-9.5).
+        for (const ox of [8.8, 9.0, 9.2, 8.6, 9.4, 9.6]) {
+          for (const oz of [-6.3, -6.0, -6.6, -5.7, -6.9]) {
+            ray.set(new THREE.Vector3(ox, 3.5, oz), downDir);
             const hits = ray.intersectObjects(meshes, false);
 
             for (const hit of hits) {
+              // Only accept hits at table height (0.5 – 2.5 m), not the floor
+              if (hit.point.y < 0.5 || hit.point.y > 2.5) continue;
+
               const b  = new THREE.Box3().setFromObject(hit.object);
               const sz = b.getSize(_v);
-              // Skip tiny trims (< 15 cm) and room-scale surfaces (> 4 m)
-              if (Math.min(sz.x, sz.y, sz.z) < 0.15) continue;
-              if (Math.max(sz.x, sz.y, sz.z) > 4)    continue;
+              // Tablet in A-Frame: ~1.53 m wide (X), ~1.03 m long (Z), ~0.13 m thin (Y).
+              // Filter: at least 0.4 m in both X and Z, very thin in Y (< 0.4 m).
+              if (sz.x < 0.4 || sz.z < 0.4) continue;
+              if (sz.x > 4   || sz.z > 4)   continue;
+              if (sz.y > 0.4) continue; // must be a thin horizontal surface
 
-              // World-space face normal
+              // World-space face normal — ensure it faces upward
               _nm.getNormalMatrix(hit.object.matrixWorld);
               const normal = hit.face.normal.clone().applyMatrix3(_nm).normalize();
-              if (normal.dot(dir) > 0) normal.negate(); // must face the player
+              if (normal.y < 0) normal.negate();
 
-              // Place portal 1 cm in front of the surface
-              const pos = hit.point.clone().addScaledVector(normal, 0.01);
+              // Place portal 1 cm above the screen surface
+              const pos = hit.point.clone();
+              pos.y += 0.01;
 
-              // Rotate portal so its front face (+Z local) aligns with the normal
-              _q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-              _eu.setFromQuaternion(_q, 'YXZ');
-
+              // Orient portal front face (+Z local) upward to match normal.
+              // Use Rx=-90 so the portal lies flat; keep Y=0 for now.
               portal.setAttribute('position', { x: pos.x, y: pos.y, z: pos.z });
-              portal.setAttribute('rotation', {
-                x: THREE.MathUtils.radToDeg(_eu.x),
-                y: THREE.MathUtils.radToDeg(_eu.y),
-                z: THREE.MathUtils.radToDeg(_eu.z),
-              });
+              portal.setAttribute('rotation', { x: -90, y: 0, z: 0 });
               portal.setAttribute('visible', 'true');
 
-              console.log('[portal] auto-aligned  pos', pos.toArray().map(v=>v.toFixed(2)),
-                          ' normal', normal.toArray().map(v=>v.toFixed(2)),
+              console.log('[portal] auto-aligned (horizontal)  pos',
+                          pos.toArray().map(v=>v.toFixed(2)),
                           ' meshSz', sz.toArray().map(v=>v.toFixed(2)));
               return;
             }
           }
         }
 
-        // Fallback: show at best-guess position if no mesh found
-        console.warn('[portal] tablet not found by raycasting — using fallback');
-        portal.setAttribute('position', '8.8 2.3 -6.2');
-        portal.setAttribute('rotation', '0 -90 0');
+        // Fallback — use Blender-informed position directly
+        console.warn('[portal] tablet not found — using fallback');
+        portal.setAttribute('position', '9.0 1.5 -6.3');
+        portal.setAttribute('rotation', '-90 0 0');
         portal.setAttribute('visible', 'true');
       }
 
@@ -1370,8 +1388,13 @@
         if (el) el.style.display = 'none';
       });
 
-      // Unlock audio.
+      // Unlock audio context and proactively request microphone permission.
+      // Doing this on the first XR user-gesture means the browser should
+      // grant it before the user presses the trigger to speak.
       try { new (window.AudioContext || window.webkitAudioContext)().resume(); } catch (_) {}
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {});
+      }
     });
 
     scene.addEventListener('exit-vr', () => {
