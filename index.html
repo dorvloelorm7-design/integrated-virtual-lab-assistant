@@ -24,18 +24,6 @@
     @keyframes load { to { width: 100%; } }
     .loading-label { color: #4a7a9b; font-family: 'Courier New', monospace; font-size: 0.8rem; letter-spacing: 0.1em; }
 
-    /* ── Website link button ── */
-    #site-link {
-      position: fixed; top: 16px; left: 16px; z-index: 300;
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(8,13,24,0.85); color: #aad4ff;
-      font-family: 'Courier New', monospace; font-size: 0.82rem; font-weight: bold;
-      letter-spacing: 0.04em; text-decoration: none;
-      padding: 9px 14px; border: 1px solid #1a3a5a; border-radius: 12px;
-      box-shadow: 0 0 14px rgba(0,170,255,0.18); transition: all 0.2s;
-    }
-    #site-link:hover { border-color: #00aaff; color: #00ffcc; box-shadow: 0 0 22px rgba(0,170,255,0.4); }
-    #site-link img { display: block; }
 
     /* ── Controls hint ── */
     #controls-hint {
@@ -278,12 +266,6 @@
     <div class="loading-label">Initializing lab environment...</div>
   </div>
 
-  <!-- Website link -->
-  <a id="site-link" href="https://lab-mate-khaki.vercel.app/" target="_blank" rel="noopener">
-    <img src="favicon.svg" alt="" width="20" height="20">
-    LabMate Website ↗
-  </a>
-
   <!-- Controls hint -->
   <div id="controls-hint">
     WASD / Arrow keys to move &nbsp;·&nbsp; Mouse to look &nbsp;·&nbsp; Walk near objects to interact
@@ -408,6 +390,54 @@
       position="-1.43 1.2 0.18" radius="2.2">
     </a-sphere>
     <a-text value="🛠️ Workbench" position="-1.43 2.6 0.18" align="center" color="#ff44aa" width="5"></a-text>
+
+    <!--
+    ══════════════════════════════════════════════════════
+    WEBSITE PORTAL SCREEN — interactive tablet-style display
+    Click it (desktop) or point + trigger (VR) → opens website.
+    Position: left wall near entrance; rotate so face shows inward.
+    ══════════════════════════════════════════════════════
+    -->
+    <a-entity id="website-portal" class="interactive"
+      position="-4.5 1.8 1.2" rotation="0 90 0">
+
+      <!-- Screen bezel -->
+      <a-plane width="1.55" height="1.02"
+        material="color: #1a1a1a; roughness: 0.4; metalness: 0.8"></a-plane>
+      <!-- Screen face -->
+      <a-plane width="1.44" height="0.92" position="0 0 0.004"
+        material="color: #071a0f; emissive: #071a0f; emissiveIntensity: 0.6; shader: flat"></a-plane>
+
+      <!-- Header bar -->
+      <a-plane width="1.44" height="0.13" position="0 0.395 0.005"
+        material="color: #1a4a2a; emissive: #0d2a15; emissiveIntensity: 0.8; shader: flat"></a-plane>
+      <a-text value="🤖  LabMate" color="#7ecf9e" position="-0.68 0.39 0.007"
+        align="left" width="1.3" wrap-count="22"></a-text>
+      <a-text value="Virtual Lab" color="#4a8a5a" position="0.45 0.39 0.007"
+        align="right" width="0.9" wrap-count="14"></a-text>
+
+      <!-- Main content -->
+      <a-text value="Electronics Physics Lab" color="#c8e8d4"
+        position="0 0.22 0.007" align="center" width="1.3" wrap-count="28"></a-text>
+      <a-text value="AI-powered guidance for every station." color="#6aaa86"
+        position="0 0.08 0.007" align="center" width="1.2" wrap-count="32"></a-text>
+
+      <!-- Divider -->
+      <a-plane width="1.2" height="0.006" position="0 -0.02 0.006"
+        material="color: #1a4a2a; shader: flat"></a-plane>
+
+      <!-- CTA button -->
+      <a-plane id="portal-btn" width="0.88" height="0.17" position="0 -0.2 0.007"
+        material="color: #1a5c2e; emissive: #0d3318; emissiveIntensity: 0.9; shader: flat"
+        animation="property: material.emissiveIntensity; from: 0.5; to: 1.2; dir: alternate; loop: true; dur: 1200">
+      </a-plane>
+      <a-text value="VISIT WEBSITE  →" color="#00ff88"
+        position="0 -0.2 0.01" align="center" width="0.84" wrap-count="20"></a-text>
+
+      <!-- Footer -->
+      <a-text value="lab-mate-khaki.vercel.app" color="#2a5a3a"
+        position="0 -0.38 0.007" align="center" width="1.2" wrap-count="30"></a-text>
+    </a-entity>
 
     <!--
     ══════════════════════════════════════════════════════
@@ -1198,6 +1228,24 @@
       coordDisplay.textContent =
         'X: ' + p.x.toFixed(2) + '   Y: ' + p.y.toFixed(2) + '   Z: ' + p.z.toFixed(2);
     }, 200);
+
+    // ── Website portal screen ───────────────────────────────────────────
+    const portalEl = document.getElementById('website-portal');
+    if (portalEl) {
+      portalEl.addEventListener('click', () => {
+        window.open('https://lab-mate-khaki.vercel.app/', '_blank', 'noopener');
+      });
+      portalEl.addEventListener('mouseenter', () => {
+        document.getElementById('portal-btn').setAttribute('material', 'color: #2a7a3e; emissiveIntensity: 1.4');
+        proximityPrompt.textContent = 'Click to visit the LabMate website';
+        proximityPrompt.style.display = 'block';
+      });
+      portalEl.addEventListener('mouseleave', () => {
+        document.getElementById('portal-btn').setAttribute('material', 'color: #1a5c2e; emissiveIntensity: 0.9');
+        if (!activeZone) proximityPrompt.style.display = 'none';
+        else proximityPrompt.textContent = activeZone.dataset.prompt;
+      });
+    }
 
     // ── VR enter / exit ─────────────────────────────────────────────────
     const rigEl = document.getElementById('rig');
