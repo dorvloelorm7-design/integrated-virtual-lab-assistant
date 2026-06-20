@@ -202,8 +202,8 @@
       margin-bottom: 14px; border-bottom: 1px solid #1a3a5a; padding-bottom: 12px;
     }
     #chat-topic { font-size: 0.95rem; color: #00aaff; letter-spacing: 0.08em; }
-    #close-chat { background: #1a3a5a; border: 1px solid #2a5a8a; color: #c8e0ff; font-size: 0.82rem; font-family: 'Courier New', monospace; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: background 0.2s, color 0.2s; }
-    #close-chat:hover { background: #ff3355; border-color: #ff3355; color: #fff; }
+    #close-chat { display: block; width: 100%; margin-top: 10px; padding: 10px; background: #1a0a0f; border: 1px solid #ff3355; color: #ff6677; font-size: 0.85rem; font-family: 'Courier New', monospace; border-radius: 8px; cursor: pointer; transition: background 0.2s, color 0.2s; text-align: center; }
+    #close-chat:hover { background: #ff3355; color: #fff; }
 
     #chat-window {
       height: 240px; overflow-y: auto; background: #050a12;
@@ -388,10 +388,7 @@
   <div id="chat-overlay">
     <div id="chat-header">
       <span id="chat-topic">🤖 LabMate Assistant</span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
-        <button id="close-chat">✕ Close</button>
-      </div>
+      <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
     </div>
     <div id="chat-window"></div>
 
@@ -401,6 +398,7 @@
         <input id="user-input" type="text" placeholder="Ask the lab assistant..." />
         <button id="send-btn">Send</button>
       </div>
+      <button id="close-chat">✕ Close Chat</button>
     </div>
   </div>
 
@@ -1361,6 +1359,7 @@
 
     // ── Keyboard shortcuts ──────────────────────────────────────────────
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && chatOverlay.style.display === 'block') { closeChat(); return; }
       // P toggles the coordinate display (walk to equipment, note XYZ, report new positions)
       if (e.code === 'KeyP') {
         coordVisible = !coordVisible;
