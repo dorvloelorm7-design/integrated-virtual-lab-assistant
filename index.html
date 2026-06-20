@@ -398,7 +398,7 @@
     Position: left wall near entrance; rotate so face shows inward.
     ══════════════════════════════════════════════════════
     -->
-    <a-entity id="website-portal" class="interactive"
+    <a-entity id="website-portal" class="interactive" visible="false"
       position="8.8 2.3 -6.2" rotation="0 -90 0" scale="0.4 0.4 0.4">
 
       <!-- Screen bezel -->
@@ -1254,6 +1254,79 @@
         else proximityPrompt.textContent = activeZone.dataset.prompt;
       });
     }
+
+    // ── Portal auto-align: find the physical tablet mesh at runtime ─────
+    // Shoots rays from the player's known viewpoint at the right wall and
+    // snaps the portal entity to the first tablet-sized surface it hits.
+    (function alignPortalToTablet() {
+      const lab = document.getElementById('lab');
+      const portal = document.getElementById('website-portal');
+      const _nm  = new THREE.Matrix3();
+      const _q   = new THREE.Quaternion();
+      const _eu  = new THREE.Euler();
+      const _v   = new THREE.Vector3();
+
+      function doAlign() {
+        lab.object3D.updateMatrixWorld(true);
+        const meshes = [];
+        lab.object3D.traverse(o => { if (o.isMesh) meshes.push(o); });
+
+        const ray = new THREE.Raycaster();
+        ray.far = 6;
+        const dir = new THREE.Vector3(1, 0, 0); // toward right wall (+X)
+
+        // Grid of origins around where the player stands at the tablet.
+        // Player readings: X≈8.07, Z≈-6.2. Camera eye is Y=2.4.
+        for (const oy of [2.4, 2.1, 1.8, 2.7]) {
+          for (const oz of [-6.2, -5.8, -6.6, -5.4, -7.0]) {
+            ray.set(new THREE.Vector3(7.5, oy, oz), dir);
+            const hits = ray.intersectObjects(meshes, false);
+
+            for (const hit of hits) {
+              const b  = new THREE.Box3().setFromObject(hit.object);
+              const sz = b.getSize(_v);
+              // Skip tiny trims (< 15 cm) and room-scale surfaces (> 4 m)
+              if (Math.min(sz.x, sz.y, sz.z) < 0.15) continue;
+              if (Math.max(sz.x, sz.y, sz.z) > 4)    continue;
+
+              // World-space face normal
+              _nm.getNormalMatrix(hit.object.matrixWorld);
+              const normal = hit.face.normal.clone().applyMatrix3(_nm).normalize();
+              if (normal.dot(dir) > 0) normal.negate(); // must face the player
+
+              // Place portal 1 cm in front of the surface
+              const pos = hit.point.clone().addScaledVector(normal, 0.01);
+
+              // Rotate portal so its front face (+Z local) aligns with the normal
+              _q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+              _eu.setFromQuaternion(_q, 'YXZ');
+
+              portal.setAttribute('position', { x: pos.x, y: pos.y, z: pos.z });
+              portal.setAttribute('rotation', {
+                x: THREE.MathUtils.radToDeg(_eu.x),
+                y: THREE.MathUtils.radToDeg(_eu.y),
+                z: THREE.MathUtils.radToDeg(_eu.z),
+              });
+              portal.setAttribute('visible', 'true');
+
+              console.log('[portal] auto-aligned  pos', pos.toArray().map(v=>v.toFixed(2)),
+                          ' normal', normal.toArray().map(v=>v.toFixed(2)),
+                          ' meshSz', sz.toArray().map(v=>v.toFixed(2)));
+              return;
+            }
+          }
+        }
+
+        // Fallback: show at best-guess position if no mesh found
+        console.warn('[portal] tablet not found by raycasting — using fallback');
+        portal.setAttribute('position', '8.8 2.3 -6.2');
+        portal.setAttribute('rotation', '0 -90 0');
+        portal.setAttribute('visible', 'true');
+      }
+
+      if (lab.getObject3D('mesh')) setTimeout(doAlign, 200);
+      else lab.addEventListener('model-loaded', () => setTimeout(doAlign, 200));
+    })();
 
     // ── VR enter / exit ─────────────────────────────────────────────────
     const rigEl = document.getElementById('rig');
