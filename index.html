@@ -399,6 +399,41 @@
 
     <!--
     ══════════════════════════════════════════════════════
+    INTERACTIVE HOTSPOTS — glowing orbs the player can
+    click (desktop cursor) or point at + trigger (VR).
+    Each orb matches its station's colour and data-topic.
+    ══════════════════════════════════════════════════════
+    -->
+    <a-sphere id="hotspot-osc" class="interactive"
+      position="-8.43 2.1 -2.11" radius="0.13"
+      data-topic="📈 Oscilloscope Station"
+      material="color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.7; shader: standard"
+      animation="property: material.emissiveIntensity; from: 0.3; to: 1.1; dir: alternate; loop: true; dur: 1000; easing: easeInOutSine">
+    </a-sphere>
+
+    <a-sphere id="hotspot-rack" class="interactive"
+      position="2.92 2.1 4.09" radius="0.13"
+      data-topic="🎛️ Power Supply &amp; Function Generator"
+      material="color: #ffaa00; emissive: #ffaa00; emissiveIntensity: 0.7; shader: standard"
+      animation="property: material.emissiveIntensity; from: 0.3; to: 1.1; dir: alternate; loop: true; dur: 1000; easing: easeInOutSine">
+    </a-sphere>
+
+    <a-sphere id="hotspot-bench" class="interactive"
+      position="-1.44 2.1 -5.82" radius="0.13"
+      data-topic="🔧 Measurement &amp; Calibration"
+      material="color: #00aaff; emissive: #00aaff; emissiveIntensity: 0.7; shader: standard"
+      animation="property: material.emissiveIntensity; from: 0.3; to: 1.1; dir: alternate; loop: true; dur: 1000; easing: easeInOutSine">
+    </a-sphere>
+
+    <a-sphere id="hotspot-work" class="interactive"
+      position="-1.43 2.1 0.18" radius="0.13"
+      data-topic="🛠️ Electronics Workbench"
+      material="color: #ff44aa; emissive: #ff44aa; emissiveIntensity: 0.7; shader: standard"
+      animation="property: material.emissiveIntensity; from: 0.3; to: 1.1; dir: alternate; loop: true; dur: 1000; easing: easeInOutSine">
+    </a-sphere>
+
+    <!--
+    ══════════════════════════════════════════════════════
     SAFETY HAZARD ZONES (Addy's system)
     Invisible triggers anchored to the REAL equipment in
     67.glb (no placeholder geometry, no bubble domes).
@@ -461,7 +496,8 @@
         hand-tracking-controls="hand: left"></a-entity>
       <a-entity id="rightHand"
         hand-controls="hand: right; handModelStyle: lowPoly; color: #ffd5b3"
-        hand-tracking-controls="hand: right"></a-entity>
+        hand-tracking-controls="hand: right"
+        raycaster="objects: .interactive; far: 8; showLine: false"></a-entity>
     </a-entity>
 
   </a-scene>
@@ -806,16 +842,26 @@
     let activeSystemPrompt = "You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure.";
 
     // ── Open / Close chat ───────────────────────────────────────────────
+    const cameraEl = document.getElementById('camera');
+
     function openChat(topic, systemPrompt) {
       if (topic) { chatTopic.textContent = topic; activeSystemPrompt = systemPrompt; }
       if (isVR) return; // VR uses the 3D HUD panel instead of the DOM overlay
+      // Pause pointer lock so the overlay can receive mouse clicks and keyboard input.
       document.exitPointerLock();
+      cameraEl.setAttribute('look-controls', 'pointerLockEnabled: false');
       chatOverlay.style.display = 'block';
-      userInput.focus();
+      // Delay focus until pointer lock is fully released (async browser event).
+      setTimeout(() => userInput.focus(), 150);
+    }
+
+    function closeChat() {
+      chatOverlay.style.display = 'none';
+      cameraEl.setAttribute('look-controls', 'pointerLockEnabled: true');
     }
 
     document.getElementById('text-quick-btn').addEventListener('click',  () => openChat(null, null));
-    document.getElementById('close-chat').addEventListener('click', () => { chatOverlay.style.display = 'none'; });
+    document.getElementById('close-chat').addEventListener('click', closeChat);
 
     // ── Messages ────────────────────────────────────────────────────────
     function addMessage(text, sender) {
@@ -1081,8 +1127,44 @@
         openChat(activeZone.dataset.topic, activeZone.dataset.system);
       }
       if (e.key === 'Escape' && chatOverlay.style.display === 'block') {
-        chatOverlay.style.display = 'none';
+        closeChat();
       }
+    });
+
+    // ── Station hotspot orb click / hover ──────────────────────────────
+    // Each orb carries data-topic matching its proximity zone so we can
+    // look up the full system prompt without embedding it in the attribute.
+    ['hotspot-osc', 'hotspot-rack', 'hotspot-bench', 'hotspot-work'].forEach(id => {
+      const orb = document.getElementById(id);
+      if (!orb) return;
+
+      orb.addEventListener('click', () => {
+        const topic = orb.dataset.topic;
+        // Decode HTML entities in topic (e.g. &amp; → &) for comparison.
+        const div = document.createElement('div');
+        div.innerHTML = topic;
+        const decodedTopic = div.textContent;
+        const zone = Array.from(zones).find(z => z.dataset.topic === decodedTopic);
+        if (zone) openChat(zone.dataset.topic, zone.dataset.system);
+      });
+
+      // Visual hover feedback: brighten on cursor enter, dim on leave.
+      orb.addEventListener('mouseenter', () => {
+        orb.setAttribute('material', 'emissiveIntensity: 1.4');
+        orb.setAttribute('scale', '1.35 1.35 1.35');
+        proximityPrompt.textContent = 'Click to open ' + (orb.dataset.topic || 'station');
+        proximityPrompt.style.display = 'block';
+      });
+      orb.addEventListener('mouseleave', () => {
+        orb.setAttribute('material', 'emissiveIntensity: 0.7');
+        orb.setAttribute('scale', '1 1 1');
+        // Restore zone prompt or hide.
+        if (activeZone) {
+          proximityPrompt.textContent = activeZone.dataset.prompt;
+        } else {
+          proximityPrompt.style.display = 'none';
+        }
+      });
     });
 
     // ── VR enter / exit ─────────────────────────────────────────────────
@@ -1116,13 +1198,27 @@
       if (!isVR) return;
       // Unlock speech synthesis on first real user interaction inside VR.
       try { window.speechSynthesis.cancel(); } catch (_) {}
-      if (!activeZone) {
-        vrStatus.setAttribute('value', '⚠️ Walk closer to a station first');
-        return;
+
+      // If the controller is pointing at a station hotspot, open that station.
+      const rc = rightHandEl.components && rightHandEl.components.raycaster;
+      if (rc && rc.intersections && rc.intersections.length > 0) {
+        const hit = rc.intersections[0].object && rc.intersections[0].object.el;
+        if (hit && hit.classList.contains('interactive')) {
+          const topic = hit.dataset.topic;
+          const zone  = Array.from(zones).find(z => z.dataset.topic === topic);
+          if (zone) { openChat(zone.dataset.topic, zone.dataset.system); }
+          // After setting the station, fall through to start recording.
+        }
       }
-      // Set the active system prompt for the nearest station.
-      activeSystemPrompt = activeZone.dataset.system || activeSystemPrompt;
-      if (isRecording) stopRecording(); else startRecording();
+
+      // Start / stop voice — works whether the user pointed at a hotspot or
+      // is already in a proximity zone.
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+        vrStatus.setAttribute('value', '🔴 Listening... press trigger again to send');
+      }
     });
 
     leftHandEl.addEventListener('triggerdown', () => {
