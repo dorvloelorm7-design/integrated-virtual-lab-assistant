@@ -202,8 +202,8 @@
       margin-bottom: 14px; border-bottom: 1px solid #1a3a5a; padding-bottom: 12px;
     }
     #chat-topic { font-size: 0.95rem; color: #00aaff; letter-spacing: 0.08em; }
-    #close-chat { background: none; border: none; color: #4a7a9b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
-    #close-chat:hover { color: #00aaff; }
+    #close-chat { background: #1a3a5a; border: 1px solid #2a5a8a; color: #c8e0ff; font-size: 0.82rem; font-family: 'Courier New', monospace; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: background 0.2s, color 0.2s; }
+    #close-chat:hover { background: #ff3355; border-color: #ff3355; color: #fff; }
 
     #chat-window {
       height: 240px; overflow-y: auto; background: #050a12;
@@ -390,7 +390,7 @@
       <span id="chat-topic">🤖 LabMate Assistant</span>
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
-        <button id="close-chat">✕</button>
+        <button id="close-chat">✕ Close</button>
       </div>
     </div>
     <div id="chat-window"></div>
@@ -1015,6 +1015,7 @@
         // as a 2-D panel inside the headset so the user can type or use voice).
         if (topic) vrTopic.setAttribute('value', topic);
         chatOverlay.style.display = 'block';
+        vrStatus.setAttribute('value', 'Tap the text box to type · Right trigger = voice');
         setTimeout(() => userInput.focus(), 150);
         return;
       }
@@ -1647,8 +1648,9 @@
         handled = true;
       }
 
+      // Last resort: open a general chat so the user can always access text/voice.
       if (!handled) {
-        vrStatus.setAttribute('value', 'Walk near a lab station, then press the trigger.');
+        openChat('🤖 LabMate Assistant', null);
       }
     });
 
