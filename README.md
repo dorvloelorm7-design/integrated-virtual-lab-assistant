@@ -151,3 +151,6 @@ The application can be deployed on:
 ## License
 No license specified.
 
+## Author
+Group 8 
+Team Velocitas Ignis
