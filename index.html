@@ -399,7 +399,7 @@
     ══════════════════════════════════════════════════════
     -->
     <a-entity id="website-portal" class="interactive"
-      position="9.5 1.35 0.7" rotation="0 -90 0" scale="0.4 0.4 0.4">
+      position="9.3 2.3 -6.25" rotation="0 -90 0" scale="0.4 0.4 0.4">
 
       <!-- Screen bezel -->
       <a-plane width="1.55" height="1.02"
@@ -556,16 +556,15 @@
       init() {
         this.last      = new THREE.Vector3();
         this.haveLast  = false;
-        this.boxes     = [];   // solid footprints (world XZ) — derived from real geometry
-        this.allMeshes = [];   // every mesh — raycast against these for walls
-        this.room      = null; // far-backstop clamp (world XZ)
+        this.boxes     = [];      // furniture footprints (world XZ)
+        this.wallMeshes = [];     // large-geometry meshes only — raycasted for walls
+        this.room      = null;    // far-backstop clamp (world XZ)
         this.ready     = false;
 
         // Raycaster used to detect walls in the direction of travel.
         this.ray       = new THREE.Raycaster();
         this.rayOrigin = new THREE.Vector3();
         this.rayDir    = new THREE.Vector3();
-        this._frame    = 0; // throttle: only cast rays every other frame
 
         const lab = document.getElementById('lab');
 
@@ -575,21 +574,22 @@
 
           lab.object3D.traverse(o => {
             if (!o.isMesh) return;
-            this.allMeshes.push(o);
             const b = new THREE.Box3().setFromObject(o);
             if (!isFinite(b.min.x)) return;
             const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
             const area = sx * sz;
             if (area > biggestArea) { biggestArea = area; biggest = b; }
-            // Furniture-sized footprints (not the room shell, not tiny decorations).
+            // Wall-scale meshes: at least one horizontal span > 1.5 m.
+            // Only these are raycasted — tiny decorative meshes can't block the player.
+            if (sx > 1.5 || sz > 1.5) this.wallMeshes.push(o);
+            // Furniture-sized footprints (not room shell, not tiny decorations).
             if (sx < 7 && sz < 7 && area > 0.05) {
               this.boxes.push({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, area });
             }
           });
-          // Keep only the 80 largest footprints — smaller meshes are decorations
-          // that don't need to block the player. Caps cost of blocked() on complex models.
+          // Keep only the 100 largest footprints.
           this.boxes.sort((a, b) => b.area - a.area);
-          if (this.boxes.length > 80) this.boxes.length = 80;
+          if (this.boxes.length > 100) this.boxes.length = 100;
 
           // Generous backstop so the player can never escape the model entirely.
           if (biggest && (biggest.max.x - biggest.min.x) > 5) {
@@ -600,7 +600,7 @@
           }
 
           this.ready = true;
-          console.log('[lab-collider] raycast meshes:', this.allMeshes.length,
+          console.log('[lab-collider] wall meshes:', this.wallMeshes.length,
                       '· footprint boxes:', this.boxes.length);
         };
 
@@ -613,19 +613,19 @@
       // player has real width/height and can't slip between legs or under a top,
       // while still being able to walk right up to any surface.
       obstacle(x, z, dirX, dirZ, dist) {
-        if (!this.allMeshes.length) return false;
+        if (!this.wallMeshes.length) return false;
         const far = dist + this.data.pad;
-        const px = -dirZ, pz = dirX;            // perpendicular (for side offsets)
+        const px = -dirZ, pz = dirX;
         this.rayDir.set(dirX, 0, dirZ);
-        // 3-offset × 3-height fan = 9 rays per axis (was 5×6=30).
-        // Footprint boxes now handle tables, so the fan only needs to catch walls.
+        // 3 lateral offsets × 3 heights = 9 rays per axis.
+        // wallMeshes is pre-filtered to large geometry only, so each ray is fast.
         for (const off of [-0.25, 0, 0.25]) {
           const ox = x + px * off, oz = z + pz * off;
           for (const h of [0.5, 1.0, 1.7]) {
             this.rayOrigin.set(ox, h, oz);
             this.ray.set(this.rayOrigin, this.rayDir);
             this.ray.far = far;
-            if (this.ray.intersectObjects(this.allMeshes, false).length > 0) return true;
+            if (this.ray.intersectObjects(this.wallMeshes, false).length > 0) return true;
           }
         }
         return false;
@@ -649,23 +649,20 @@
 
         const dx = pos.x - this.last.x;
         const dz = pos.z - this.last.z;
-        // Skip frames with no meaningful movement to save GPU/CPU budget.
+        // Skip frames with no meaningful movement.
         if (Math.abs(dx) < 0.001 && Math.abs(dz) < 0.001) {
           this.last.set(pos.x, pos.y, pos.z);
           return;
         }
 
-        // Throttle expensive raycasts to every other frame;
-        // footprint box check (cheap) still runs every frame.
-        const castRays = (++this._frame & 1) === 0;
-
-        // Block each axis separately → player can slide along surfaces.
+        // Block each axis separately → player slides along surfaces.
+        // wallMeshes is small (~5-15 large objects) so raycasting is cheap every frame.
         if (dx !== 0 && (this.blocked(pos.x, this.last.z) ||
-            (castRays && this.obstacle(this.last.x, this.last.z, Math.sign(dx), 0, Math.abs(dx))))) {
+            this.obstacle(this.last.x, this.last.z, Math.sign(dx), 0, Math.abs(dx)))) {
           pos.x = this.last.x;
         }
         if (dz !== 0 && (this.blocked(pos.x, pos.z) ||
-            (castRays && this.obstacle(pos.x, this.last.z, 0, Math.sign(dz), Math.abs(dz))))) {
+            this.obstacle(pos.x, this.last.z, 0, Math.sign(dz), Math.abs(dz)))) {
           pos.z = this.last.z;
         }
 
