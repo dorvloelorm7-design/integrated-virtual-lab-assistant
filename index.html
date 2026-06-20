@@ -1,1136 +1,717 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LabMate · VR Lab</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="apple-touch-icon" href="favicon.svg">
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-  <style>
-    /* ── Loading screen ── */
-    #loading-screen {
-      position: fixed; inset: 0; background: #0a0f1a;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 9999; transition: opacity 0.9s ease;
-    }
-    #loading-screen.hidden { opacity: 0; pointer-events: none; }
-    .lab-logo { font-size: 2.4rem; font-family: 'Courier New', monospace; color: #00aaff; letter-spacing: 0.15em; margin-bottom: 32px; }
-    .loading-bar-wrap { width: 280px; height: 4px; background: #1a2a3a; border-radius: 2px; overflow: hidden; margin-bottom: 14px; }
-    .loading-bar { height: 100%; width: 0; background: linear-gradient(90deg, #00aaff, #00ffcc); border-radius: 2px; animation: load 2.5s ease forwards; }
-    @keyframes load { to { width: 100%; } }
-    .loading-label { color: #4a7a9b; font-family: 'Courier New', monospace; font-size: 0.8rem; letter-spacing: 0.1em; }
-
-    /* ── Website link button ── */
-    #site-link {
-      position: fixed; top: 16px; left: 16px; z-index: 300;
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(8,13,24,0.85); color: #aad4ff;
-      font-family: 'Courier New', monospace; font-size: 0.82rem; font-weight: bold;
-      letter-spacing: 0.04em; text-decoration: none;
-      padding: 9px 14px; border: 1px solid #1a3a5a; border-radius: 12px;
-      box-shadow: 0 0 14px rgba(0,170,255,0.18); transition: all 0.2s;
-    }
-    #site-link:hover { border-color: #00aaff; color: #00ffcc; box-shadow: 0 0 22px rgba(0,170,255,0.4); }
-    #site-link img { display: block; }
-
-    /* ── Controls hint ── */
-    #controls-hint {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.55); color: #aad4ff; font-family: 'Courier New', monospace;
-      font-size: 0.75rem; padding: 8px 18px; border-radius: 20px; border: 1px solid #1a3a5a;
-      z-index: 100; transition: opacity 0.8s ease;
-    }
-    #controls-hint.hidden { opacity: 0; pointer-events: none; }
-
-    /* ── Proximity prompt ── */
-    #proximity-prompt {
-      display: none;
-      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.75); border: 1px solid #00aaff;
-      color: #00aaff; font-family: 'Courier New', monospace;
-      font-size: 0.85rem; padding: 10px 22px; border-radius: 24px;
-      z-index: 200; pointer-events: none;
-      box-shadow: 0 0 20px rgba(0,170,255,0.3);
-      animation: pulse-border 1.5s infinite;
-    }
-    @keyframes pulse-border {
-      0%, 100% { box-shadow: 0 0 10px rgba(0,170,255,0.3); }
-      50% { box-shadow: 0 0 25px rgba(0,170,255,0.7); }
-    }
-
-    /* ── Recording overlay (compact bar, bottom-center) ── */
-    #recording-overlay {
-      display: none; position: fixed; bottom: 24px; left: 50%;
-      transform: translateX(-50%); z-index: 99998;
-      background: rgba(10,0,0,0.82); border: 1px solid rgba(255,68,68,0.5);
-      border-radius: 30px; padding: 8px 10px 8px 16px;
-      flex-direction: row; align-items: center; gap: 12px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.5);
-      max-width: calc(100vw - 32px);
-    }
-    #recording-overlay.active { display: flex; }
-    #stop-rec-btn {
-      padding: 8px 20px; font-size: 0.85rem; font-weight: bold;
-      font-family: 'Courier New', monospace; letter-spacing: 0.08em;
-      background: #cc0000; color: #fff; border: 1px solid #ff4444;
-      border-radius: 18px; cursor: pointer; white-space: nowrap;
-      box-shadow: 0 0 14px rgba(255,0,0,0.5);
-      animation: stop-pulse 0.8s infinite;
-    }
-    #stop-rec-btn:hover { background: #ff0000; }
-    @keyframes stop-pulse {
-      0%,100% { box-shadow: 0 0 8px rgba(255,0,0,0.4); }
-      50%      { box-shadow: 0 0 18px rgba(255,0,0,0.8); }
-    }
-    #rec-label {
-      color: #ff8888; font-family: 'Courier New', monospace;
-      font-size: 0.8rem; letter-spacing: 0.04em; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
-    }
-
-    /* ── Voice status indicator ── */
-    #voice-status {
-      display: none;
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(10,0,0,0.92); border: 2px solid #ff4444;
-      color: #ff4444; font-family: 'Courier New', monospace;
-      font-size: 0.95rem; font-weight: bold;
-      padding: 12px 28px; border-radius: 30px; z-index: 9999;
-      cursor: pointer; letter-spacing: 0.08em;
-      animation: rec-blink-border 1s infinite;
-    }
-    #voice-status:hover { background: rgba(60,0,0,0.95); }
-    @keyframes rec-blink-border {
-      0%,100% { box-shadow: 0 0 10px rgba(255,60,60,0.4); }
-      50%      { box-shadow: 0 0 24px rgba(255,60,60,0.9); }
-    }
-    #voice-status.speaking { border-color: #00ffcc; color: #00ffcc; animation: none;
-      box-shadow: 0 0 14px rgba(0,255,200,0.4); }
-
-    /* ── TTS stop button ── */
-    #stop-tts-btn {
-      display: none;
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateX(120px);
-      background: #dc3545; border: none; color: white;
-      font-family: 'Courier New', monospace; font-size: 0.78rem; font-weight: bold;
-      padding: 8px 16px; border-radius: 20px; cursor: pointer; z-index: 300;
-      transition: background 0.2s;
-    }
-    #stop-tts-btn:hover { background: #b02a37; }
-
-    /* ── TTS toggle in chat header ── */
-    #tts-toggle-btn {
-      background: none; border: 1px solid #1a3a5a; color: #4a7a9b;
-      font-family: 'Courier New', monospace; font-size: 0.75rem;
-      padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
-    }
-    #tts-toggle-btn.tts-on { border-color: #00ffcc; color: #00ffcc; }
-    #tts-toggle-btn:hover { border-color: #00aaff; color: #00aaff; }
-
-    /* ── Assistant button group ── */
-    #assistant-btns {
-      position: fixed; bottom: 60px; right: 24px;
-      display: flex; flex-direction: row; gap: 10px; align-items: center; z-index: 200;
-    }
-    .quick-btn {
-      background: #080d18; color: #00aaff; font-family: 'Courier New', monospace;
-      font-size: 0.9rem; font-weight: bold; padding: 16px 18px;
-      border: 2px solid #00aaff; border-radius: 14px; cursor: pointer;
-      box-shadow: 0 0 16px rgba(0,170,255,0.3); transition: all 0.2s;
-      letter-spacing: 0.05em; white-space: nowrap;
-    }
-    .quick-btn:hover { background: #00aaff; color: #080d18; box-shadow: 0 0 28px rgba(0,170,255,0.6); }
-    #voice-quick-btn { position: relative; }
-    #voice-quick-btn .rec-dot {
-      display: none; position: absolute; top: 8px; right: 10px;
-      width: 10px; height: 10px; border-radius: 50%; background: #ff2222;
-      animation: rec-blink 0.7s infinite;
-    }
-    #voice-quick-btn.recording { border-color: #ff4444; color: #ff4444;
-      box-shadow: 0 0 20px rgba(255,60,60,0.5); background: #1a0000; }
-    #voice-quick-btn.recording .rec-dot { display: block; }
-    @keyframes rec-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-
-    /* ── Chat overlay ── */
-    #chat-overlay {
-      display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: min(500px, calc(100vw - 40px)); background: #080d18; border: 2px solid #00aaff;
-      border-radius: 16px; padding: 22px; z-index: 1000; color: #e0eeff;
-      font-family: 'Courier New', monospace; box-shadow: 0 0 50px rgba(0,170,255,0.35);
-    }
-    #chat-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 14px; border-bottom: 1px solid #1a3a5a; padding-bottom: 12px;
-    }
-    #chat-topic { font-size: 0.95rem; color: #00aaff; letter-spacing: 0.08em; }
-    #close-chat { background: none; border: none; color: #4a7a9b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
-    #close-chat:hover { color: #00aaff; }
-
-    #chat-window {
-      height: 240px; overflow-y: auto; background: #050a12;
-      border-radius: 8px; padding: 12px; margin-bottom: 14px;
-      scrollbar-width: thin; scrollbar-color: #1a3a5a transparent;
-    }
-    .msg { margin: 8px 0; padding: 9px 13px; border-radius: 8px; font-size: 0.82rem; line-height: 1.55; max-width: 90%; }
-    .msg.user { background: #003a66; border: 1px solid #00aaff44; margin-left: auto; text-align: right; }
-    .msg.claude { background: #0d1e30; border: 1px solid #1a3a5a; }
-    .msg.claude h1, .msg.claude h2, .msg.claude h3 { font-size: 0.9rem; color: #00ccff; margin: 6px 0 4px; }
-    .msg.claude p { margin: 4px 0; }
-    .msg.claude ul, .msg.claude ol { padding-left: 18px; margin: 4px 0; }
-    .msg.claude code { background: #0a1a2a; padding: 1px 5px; border-radius: 3px; font-size: 0.78rem; color: #00ffcc; }
-    .msg.claude table { border-collapse: collapse; font-size: 0.78rem; width: 100%; margin: 6px 0; }
-    .msg.claude th, .msg.claude td { border: 1px solid #1a3a5a; padding: 4px 8px; }
-
-    /* ── Typing indicator (shown while waiting for a reply) ── */
-    .msg.typing { display: flex; gap: 4px; align-items: center; width: fit-content; }
-    .msg.typing span {
-      width: 7px; height: 7px; border-radius: 50%; background: #4a7a9b;
-      animation: typing-bounce 1.2s infinite ease-in-out both;
-    }
-    .msg.typing span:nth-child(2) { animation-delay: 0.15s; }
-    .msg.typing span:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes typing-bounce {
-      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-      40%           { transform: scale(1);   opacity: 1;   }
-    }
-
-    /* ── Text panel ── */
-    #text-panel { display: block; }
-    #input-row { display: flex; gap: 8px; align-items: center; }
-    #user-input {
-      flex: 1; padding: 14px 13px; background: #050a12; border: 1px solid #1a3a5a;
-      border-radius: 8px; color: #e0eeff; font-family: 'Courier New', monospace;
-      font-size: 0.88rem; outline: none; transition: border-color 0.2s;
-    }
-    #user-input:focus { border-color: #00aaff; }
-    #send-btn {
-      padding: 14px 18px; background: #00aaff; color: #080d18; border: none;
-      border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.88rem;
-      font-weight: bold; cursor: pointer; transition: background 0.2s; white-space: nowrap;
-    }
-    #send-btn:hover { background: #00ccff; }
-    #send-btn:disabled { background: #1a3a5a; color: #4a7a9b; cursor: not-allowed; }
-
-    /* ── Safety HUD (Addy's system) ── */
-    #safety-hud {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      width: min(520px, calc(100vw - 32px));
-      padding: 14px 18px; border-radius: 12px;
-      border: 2px solid var(--hud-color, #ffb74d);
-      background: rgba(10, 14, 20, 0.92);
-      color: #f5f7fa;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-      transition: opacity 0.2s ease, border-color 0.2s ease;
-      z-index: 5000; pointer-events: none;
-    }
-    #safety-hud.hidden { opacity: 0; visibility: hidden; }
-    #safety-hud.visible { opacity: 1; visibility: visible; }
-    #safety-hud.inner { animation: safety-pulse 1s ease-in-out infinite; }
-    @keyframes safety-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hud-color) 40%, transparent); }
-      50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--hud-color) 0%, transparent); }
-    }
-    #hud-severity {
-      display: inline-block; font-size: 11px; font-weight: 700;
-      letter-spacing: 0.08em; color: var(--hud-color, #ffb74d); margin-bottom: 4px;
-    }
-    #hud-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; font-family: 'Courier New', monospace; }
-    #hud-message { margin: 0 0 6px; font-size: 14px; line-height: 1.45; color: #d8dee9; font-family: 'Courier New', monospace; }
-    #hud-distance { margin: 0; font-size: 12px; color: #8b949e; font-family: 'Courier New', monospace; }
-
-    /* ── Incident log panel ── */
-    #incident-panel {
-      position: fixed; bottom: 16px; left: 16px;
-      width: min(320px, calc(100vw - 32px));
-      padding: 12px 14px; border-radius: 10px;
-      background: rgba(10, 14, 20, 0.85);
-      border: 1px solid #1a3a5a;
-      color: #e6edf3; font-size: 12px; z-index: 4000;
-      font-family: 'Courier New', monospace;
-    }
-    #incident-panel h3 { margin: 0 0 8px; font-size: 11px; color: #4a7a9b; letter-spacing: 0.08em; }
-    #incident-log { margin: 0; padding-left: 16px; max-height: 100px; overflow-y: auto; }
-    #incident-log li { margin-bottom: 4px; font-size: 11px; color: #8b949e; }
-  </style>
-</head>
-<body>
-
-  <!-- Loading screen -->
-  <div id="loading-screen">
-    <div class="lab-logo">
-      <img src="favicon.svg" alt="" width="40" height="40" style="vertical-align:-8px;margin-right:10px;">
-      Lab<span style="color:#00ffcc;">Mate</span>
-    </div>
-    <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
-    <div class="loading-label">Initializing lab environment...</div>
-  </div>
-
-  <!-- Website link -->
-  <a id="site-link" href="https://lab-mate-khaki.vercel.app/" target="_blank" rel="noopener">
-    <img src="favicon.svg" alt="" width="20" height="20">
-    LabMate Website ↗
-  </a>
-
-  <!-- Controls hint -->
-  <div id="controls-hint">
-    WASD / Arrow keys to move &nbsp;·&nbsp; Mouse to look &nbsp;·&nbsp; Walk near objects to interact
-  </div>
-
-  <!-- Proximity prompt (shown when near an AI zone) -->
-  <div id="proximity-prompt">Press E to talk to the assistant</div>
-
-  <!-- Voice status -->
-  <div id="voice-status">🎙️ Listening...</div>
-
-  <!-- Recording overlay: compact bar shown at bottom-center while mic is active -->
-  <div id="recording-overlay">
-    <button id="stop-rec-btn">⏹ STOP</button>
-    <div id="rec-label">🔴 Listening — or press <strong>V</strong> / <strong>Space</strong> to stop</div>
-  </div>
-  <button id="stop-tts-btn" title="Stop speaking">⏹ Stop</button>
-
-  <!-- Assistant button group -->
-  <div id="assistant-btns">
-    <button class="quick-btn" id="voice-quick-btn">🎙️ Voice<span class="rec-dot"></span></button>
-    <button class="quick-btn" id="text-quick-btn">⌨️ Text</button>
-  </div>
-
-  <!-- Safety HUD (Addy's system) -->
-  <div id="safety-hud" class="hidden">
-    <div id="hud-severity">CAUTION</div>
-    <h1 id="hud-title">Hazard</h1>
-    <p id="hud-message">Move away from the hazard zone.</p>
-    <p id="hud-distance">—</p>
-  </div>
-
-  <!-- Incident log panel -->
-  <div id="incident-panel">
-    <h3>⚠ SAFETY LOG</h3>
-    <ul id="incident-log"></ul>
-  </div>
-
-  <!-- AI Chat Overlay -->
-  <div id="chat-overlay">
-    <div id="chat-header">
-      <span id="chat-topic">🤖 LabMate Assistant</span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
-        <button id="close-chat">✕</button>
-      </div>
-    </div>
-    <div id="chat-window"></div>
-
-    <!-- Text input panel -->
-    <div id="text-panel">
-      <div id="input-row">
-        <input id="user-input" type="text" placeholder="Ask the lab assistant..." />
-        <button id="send-btn">Send</button>
-      </div>
-    </div>
-  </div>
-
-  <a-scene
-    safety-manager
-    background="color: #0a0f1a"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true; toneMapping: ACESFilmic; exposure: 1.5"
-    fog="type: linear; color: #0a0f1a; near: 8; far: 20"
-  >
-    <a-assets timeout="30000">
-      <a-asset-item id="lab-model" src="67.glb"></a-asset-item>
-    </a-assets>
-
-    <!-- LAB MODEL -->
-    <a-entity id="lab" gltf-model="#lab-model" scale="1.5 1.5 1.5" position="0 0 0"></a-entity>
-
-    <!-- LIGHTING -->
-    <a-light type="ambient" color="#ffffff" intensity="0.2"></a-light>
-    <a-light type="point" color="#d0eeff" intensity="5.0" distance="12" decay="2" position="0 2.5 0"></a-light>
-    <a-light type="point" color="#aaccff" intensity="0.6" distance="8" decay="2" position="0 2.2 2"></a-light>
-    <a-light type="point" color="#ffe8b0" intensity="0.3" distance="5" decay="2" position="2 1.2 -1"></a-light>
-
-    <!--
-    ══════════════════════════════════════════════════════
-    AI PROXIMITY ZONES  (anchored to real objects in 67.glb)
-    Walk near these → press E → opens AI chat.
-    Zones are invisible triggers (no bubble geometry).
-    World coords = model-local × 1.5 (lab scale).
-    ══════════════════════════════════════════════════════
-    -->
-
-    <!-- ZONE 1: Oscilloscope — real scope on the left bench -->
-    <a-sphere class="proximity-zone" visible="false"
-      data-topic="📈 Oscilloscope Station"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station specialises in the OSCILLOSCOPE — measuring and interpreting waveforms, setting timebase and voltage/division, triggering, probe compensation, and reading frequency, amplitude, and phase. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
-      data-prompt="Press E to use the Oscilloscope"
-      position="-8.43 1.2 -2.11" radius="2.4">
-    </a-sphere>
-    <a-text value="📈 Oscilloscope" position="-8.43 3.0 -2.11" align="center" color="#00ff88" width="5"></a-text>
-
-    <!-- ZONE 2: Instrument Rack — the stacked bench instruments -->
-    <a-sphere class="proximity-zone" visible="false"
-      data-topic="🎛️ Power Supply & Function Generator"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This station is the stacked BENCH INSTRUMENT RACK — the DC bench power supply and the function/signal generator. Help with setting voltage and current limits, enabling/disabling the output safely, selecting waveform shape, frequency and amplitude, and feeding a signal into a circuit or the oscilloscope. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
-      data-prompt="Press E for the Power Supply &amp; Generator"
-      position="2.92 1.2 4.09" radius="2.8">
-    </a-sphere>
-    <a-text value="🎛️ Power Supply / Generator" position="2.92 2.8 4.09" align="center" color="#ffaa00" width="5"></a-text>
-
-    <!-- ZONE 3: Measurement Bench — measurement & calibration -->
-    <a-sphere class="proximity-zone" visible="false"
-      data-topic="🔧 Measurement &amp; Calibration"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the MEASUREMENT bench — using the multimeter and instrument CALIBRATION: measuring voltage, current, resistance, and continuity; selecting ranges; zeroing and calibrating meters; and verifying instrument accuracy against references. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
-      data-prompt="Press E for the Measurement Bench"
-      position="-1.44 1.2 -5.82" radius="2.4">
-    </a-sphere>
-    <a-text value="🔧 Measurement Bench" position="-1.44 2.6 -5.82" align="center" color="#00aaff" width="5"></a-text>
-
-    <!-- ZONE 4: Workbench — general electronics (central bench) -->
-    <a-sphere class="proximity-zone" visible="false"
-      data-topic="🛠️ Electronics Workbench"
-      data-system="You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. This is the general WORKBENCH — help with overall electronics physics lab work: AC/DC theory, building and testing circuits, components (resistors, capacitors, diodes, transistors, ICs), Ohm's and Kirchhoff's laws, soldering technique, instrument setup, and electrical lab safety. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure."
-      data-prompt="Press E for the Workbench"
-      position="-1.43 1.2 0.18" radius="2.2">
-    </a-sphere>
-    <a-text value="🛠️ Workbench" position="-1.43 2.6 0.18" align="center" color="#ff44aa" width="5"></a-text>
-
-    <!--
-    ══════════════════════════════════════════════════════
-    SAFETY HAZARD ZONES (Addy's system)
-    Invisible triggers anchored to the REAL equipment in
-    67.glb (no placeholder geometry, no bubble domes).
-    World coords = model-local × 1.5 (lab scale).
-    ══════════════════════════════════════════════════════
-    -->
-
-    <!-- Oscilloscope — high-voltage probe inputs (left bench) -->
-    <a-entity id="hazard-oscilloscope" position="-8.43 1.4 -2.11"
-      hazard-zone="type: electrical; severity: caution; label: Oscilloscope;
-        message: High-voltage probe inputs. Do not exceed the probe/channel voltage rating or touch live test points while measuring.;
-        outerRadius: 2.0; innerRadius: 0.9">
-    </a-entity>
-
-    <!-- Bench power supply / function generator — live output terminals -->
-    <a-entity id="hazard-power-supply" position="2.92 1.2 4.09"
-      hazard-zone="type: electrical; severity: danger; label: Bench Power Supply;
-        message: Live output terminals. Switch the output OFF before connecting or removing leads, and never short the terminals.;
-        outerRadius: 2.2; innerRadius: 1.0">
-    </a-entity>
-
-    <!-- Loose cables on the benches — trip / snag hazard -->
-    <a-entity id="hazard-cables" position="-3.45 0.3 2.36"
-      hazard-zone="type: trip; severity: caution; label: Loose Cables;
-        message: Trailing test leads and cables. Route them clear of walkways to avoid snagging or pulling instruments off the bench.;
-        outerRadius: 2.2; innerRadius: 0.9">
-    </a-entity>
-
-    <!-- Central workbench — ESD-sensitive components -->
-    <a-entity id="hazard-esd" position="-1.43 1.2 0.18"
-      hazard-zone="type: esd; severity: info; label: ESD-Sensitive Bench;
-        message: Static-sensitive components in use. Wear a grounding wrist strap and touch a grounded point before handling ICs.;
-        outerRadius: 1.8; innerRadius: 0.7">
-    </a-entity>
-
-    <!-- CAMERA RIG -->
-    <a-entity id="rig" position="0.06 0 3" movement-controls="speed: 0.09; fly: false" lab-collider>
-      <a-camera id="camera" position="0 2.4 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
-        <a-cursor color="#7df" opacity="0.6" fuse="false" raycaster="objects: .interactive"></a-cursor>
-
-        <!-- VR HUD — 3D panel fixed 1.5 m in front of eyes, only visible in VR mode -->
-        <a-entity id="vr-hud" visible="false" position="0 -0.15 -1.5">
-          <a-plane width="1.6" height="0.82"
-            material="color: #050a12; opacity: 0.93; transparent: true; shader: flat"></a-plane>
-          <a-text id="vr-topic" value="🤖 LabMate Assistant" color="#00aaff"
-            position="0 0.34 0.005" align="center" width="1.5" wrap-count="36"></a-text>
-          <a-text id="vr-msg"
-            value="Walk near a station. Press the right trigger to ask a question."
-            color="#c8deff" position="-0.72 0.2 0.005" align="left" width="1.44"
-            wrap-count="38" baseline="top"></a-text>
-          <a-text id="vr-status" value="[ right trigger = voice ]"
-            color="#4a7a9b" position="0 -0.36 0.005" align="center" width="1.5"
-            wrap-count="40"></a-text>
-        </a-entity>
-      </a-camera>
-
-      <!-- VR HANDS — visible hand models when using a headset with controllers -->
-      <a-entity id="leftHand"
-        hand-controls="hand: left; handModelStyle: lowPoly; color: #ffd5b3"
-        hand-tracking-controls="hand: left"></a-entity>
-      <a-entity id="rightHand"
-        hand-controls="hand: right; handModelStyle: lowPoly; color: #ffd5b3"
-        hand-tracking-controls="hand: right"></a-entity>
-    </a-entity>
-
-  </a-scene>
-
-  <!-- Wall & furniture collision (prevents walking through walls / benches) -->
-  <script>
-    AFRAME.registerComponent('lab-collider', {
-      schema: {
-        pad:   { default: 0.4 },    // player half-width buffer around objects
-        debug: { default: false },  // set true to SEE the collision boxes
-      },
-      init() {
-        this.last      = new THREE.Vector3();
-        this.haveLast  = false;
-        this.boxes     = [];   // solid footprints (world XZ) — derived from real geometry
-        this.allMeshes = [];   // every mesh — raycast against these for walls
-        this.room      = null; // far-backstop clamp (world XZ)
-        this.ready     = false;
-
-        // Raycaster used to detect walls in the direction of travel.
-        this.ray       = new THREE.Raycaster();
-        this.rayOrigin = new THREE.Vector3();
-        this.rayDir    = new THREE.Vector3();
-
-        const lab = document.getElementById('lab');
-
-        const build = () => {
-          lab.object3D.updateMatrixWorld(true);
-          let biggest = null, biggestArea = 0;
-
-          lab.object3D.traverse(o => {
-            if (!o.isMesh) return;
-            this.allMeshes.push(o);
-            const b = new THREE.Box3().setFromObject(o);
-            if (!isFinite(b.min.x)) return;
-            const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
-            const area = sx * sz;
-            if (area > biggestArea) { biggestArea = area; biggest = b; }
-            // Furniture-sized footprints (not the room shell, not tiny decorations).
-            // Height-independent, so they catch tabletops that horizontal rays miss.
-            if (sx < 7 && sz < 7 && (sx > 0.1 || sz > 0.1)) {
-              this.boxes.push({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z });
-            }
-          });
-
-          // Generous backstop so the player can never escape the model entirely.
-          if (biggest && (biggest.max.x - biggest.min.x) > 5) {
-            this.room = {
-              minX: biggest.min.x, maxX: biggest.max.x,
-              minZ: biggest.min.z, maxZ: biggest.max.z,
-            };
-          }
-
-          this.ready = true;
-          console.log('[lab-collider] raycast meshes:', this.allMeshes.length,
-                      '· footprint boxes:', this.boxes.length);
-        };
-
-        if (lab.getObject3D('mesh')) build();
-        else lab.addEventListener('model-loaded', build);
-      },
-
-      // Is geometry within reach when moving (dirX,dirZ) from (x,z)?
-      // Casts a fan of rays — several lateral offsets × several heights — so the
-      // player has real width/height and can't slip between legs or under a top,
-      // while still being able to walk right up to any surface.
-      obstacle(x, z, dirX, dirZ, dist) {
-        if (!this.allMeshes.length) return false;
-        const far = dist + this.data.pad;
-        const px = -dirZ, pz = dirX;            // perpendicular (for side offsets)
-        this.rayDir.set(dirX, 0, dirZ);
-        // Dense fan: lateral samples close enough not to slip between table legs,
-        // heights stepped finely so a ray always lands on a tabletop / bench top
-        // (~0.75-0.9m) instead of passing under or over it.
-        for (const off of [-0.35, -0.18, 0, 0.18, 0.35]) {
-          const ox = x + px * off, oz = z + pz * off;
-          for (const h of [0.3, 0.6, 0.8, 1.0, 1.3, 1.8]) {
-            this.rayOrigin.set(ox, h, oz);
-            this.ray.set(this.rayOrigin, this.rayDir);
-            this.ray.far = far;
-            if (this.ray.intersectObjects(this.allMeshes, false).length > 0) return true;
-          }
-        }
-        return false;
-      },
-
-      // Is (x,z) inside any furniture footprint (XZ bounding box)?
-      // Catches tables/benches that horizontal rays can slip through between heights.
-      blocked(x, z) {
-        const p = 0.2; // tighter pad than ray fan; avoids blocking doorways
-        for (const b of this.boxes) {
-          if (x > b.minX - p && x < b.maxX + p &&
-              z > b.minZ - p && z < b.maxZ + p) return true;
-        }
-        return false;
-      },
-
-      tick() {
-        if (!this.ready) return;
-        const pos = this.el.object3D.position;
-        if (!this.haveLast) { this.last.copy(pos); this.haveLast = true; return; }
-
-        const dx = pos.x - this.last.x;
-        const dz = pos.z - this.last.z;
-
-        // Block each axis separately → player can slide along surfaces.
-        // Ray fan catches walls; footprint boxes catch flat table/bench tops.
-        if (dx !== 0 && (this.obstacle(this.last.x, this.last.z, Math.sign(dx), 0, Math.abs(dx)) ||
-            this.blocked(pos.x, this.last.z))) {
-          pos.x = this.last.x;
-        }
-        if (dz !== 0 && (this.obstacle(pos.x, this.last.z, 0, Math.sign(dz), Math.abs(dz)) ||
-            this.blocked(pos.x, pos.z))) {
-          pos.z = this.last.z;
-        }
-
-        // Far backstop so the player can never leave the model entirely.
-        if (this.room) {
-          pos.x = Math.min(Math.max(pos.x, this.room.minX), this.room.maxX);
-          pos.z = Math.min(Math.max(pos.z, this.room.minZ), this.room.maxZ);
-        }
-
-        this.last.set(pos.x, pos.y, pos.z);
-      },
-    });
-  </script>
-
-  <!-- Addy's Safety System -->
-  <script>
-    const SEVERITY = {
-      info:    { color: '#4fc3f7', label: 'INFO',    priority: 1 },
-      caution: { color: '#ffb74d', label: 'CAUTION', priority: 2 },
-      danger:  { color: '#ef5350', label: 'DANGER',  priority: 3 },
-    };
-
-    AFRAME.registerComponent('hazard-zone', {
-      schema: {
-        type:        { default: 'general' },
-        severity:    { default: 'caution' },
-        message:     { default: 'Hazard nearby. Proceed with care.' },
-        outerRadius: { default: 2.5 },
-        innerRadius: { default: 1.0 },
-        label:       { default: 'Hazard' },
-      },
-      init() {
-        this.playerEl  = null;
-        this.level     = 'none';
-        this.tmpCam    = new THREE.Vector3();
-        this.tmpHazard = new THREE.Vector3();
-        this.indicator = this.el.querySelector('.hazard-indicator');
-        if (this.indicator) {
-          this.indicator.setAttribute('radius', this.data.outerRadius);
-          const sev = SEVERITY[this.data.severity] || SEVERITY.caution;
-          this.indicator.setAttribute('material', 'color', sev.color);
-        }
-      },
-      tick() {
-        if (!this.playerEl) {
-          this.playerEl = document.querySelector('#camera');
-          if (!this.playerEl) return;
-        }
-        this.playerEl.object3D.getWorldPosition(this.tmpCam);
-        this.el.object3D.getWorldPosition(this.tmpHazard);
-        const distance = this.tmpCam.distanceTo(this.tmpHazard);
-
-        let level = 'none';
-        if (distance <= this.data.innerRadius)       level = 'inner';
-        else if (distance <= this.data.outerRadius)  level = 'outer';
-
-        if (level === this.level) return;
-        this.level = level;
-
-        this.el.emit('hazard-proximity', {
-          hazardId: this.el.id, level, distance,
-          type: this.data.type, severity: this.data.severity,
-          message: this.data.message, label: this.data.label,
-          innerRadius: this.data.innerRadius, outerRadius: this.data.outerRadius,
-        }, true);
-
-        if (this.indicator) {
-          const pulse = level === 'inner' ? 0.35 : level === 'outer' ? 0.18 : 0.06;
-          this.indicator.setAttribute('material', 'opacity', pulse);
-        }
-      },
-    });
-
-    AFRAME.registerComponent('safety-manager', {
-      schema: { cooldownMs: { default: 2500 } },
-      init() {
-        this.activeHazards  = new Map();
-        this.lastAlertKey   = '';
-        this.lastAlertTime  = 0;
-        this.incidents      = [];
-        this.hud            = document.getElementById('safety-hud');
-        this.hudSeverity    = document.getElementById('hud-severity');
-        this.hudTitle       = document.getElementById('hud-title');
-        this.hudMessage     = document.getElementById('hud-message');
-        this.hudDistance    = document.getElementById('hud-distance');
-        this.incidentLog    = document.getElementById('incident-log');
-        this.beepCtx        = null;
-        this.el.addEventListener('hazard-proximity', (evt) => this.onHazardProximity(evt.detail));
-      },
-      onHazardProximity(detail) {
-        const { hazardId, level } = detail;
-        if (level === 'none') this.activeHazards.delete(hazardId);
-        else                  this.activeHazards.set(hazardId, detail);
-        this.updateHud();
-      },
-      getTopHazard() {
-        let top = null;
-        for (const detail of this.activeHazards.values()) {
-          if (!top) { top = detail; continue; }
-          const topP   = SEVERITY[top.severity]?.priority    || 0;
-          const detP   = SEVERITY[detail.severity]?.priority || 0;
-          const topL   = top.level    === 'inner' ? 2 : 1;
-          const detL   = detail.level === 'inner' ? 2 : 1;
-          if (detP > topP || (detP === topP && detL > topL) ||
-              (detP === topP && detL === topL && detail.distance < top.distance)) {
-            top = detail;
-          }
-        }
-        return top;
-      },
-      updateHud() {
-        const top = this.getTopHazard();
-        if (!top) {
-          this.hud.classList.remove('visible', 'inner', 'outer');
-          this.hud.classList.add('hidden');
-          this.lastAlertKey = '';
-          return;
-        }
-        const sev    = SEVERITY[top.severity] || SEVERITY.caution;
-        const prefix = top.level === 'inner' ? 'Too close — ' : 'Approaching — ';
-        this.hud.classList.remove('hidden');
-        this.hud.classList.add('visible', top.level);
-        this.hud.style.setProperty('--hud-color', sev.color);
-        this.hudSeverity.textContent = sev.label;
-        this.hudTitle.textContent    = top.label;
-        this.hudMessage.textContent  = prefix + top.message;
-        this.hudDistance.textContent = top.distance.toFixed(1) + ' m away · ' + top.type.replace(/-/g, ' ');
-
-        const alertKey = top.hazardId + ':' + top.level;
-        const now = Date.now();
-        if (alertKey !== this.lastAlertKey || now - this.lastAlertTime > this.data.cooldownMs) {
-          this.lastAlertKey  = alertKey;
-          this.lastAlertTime = now;
-          this.playBeep(top.severity, top.level);
-          this.logIncident(top);
-        }
-      },
-      logIncident(detail) {
-        this.incidents.unshift({
-          time: new Date().toLocaleTimeString(),
-          label: detail.label, level: detail.level, severity: detail.severity,
-        });
-        this.incidents = this.incidents.slice(0, 6);
-        if (this.incidentLog) {
-          this.incidentLog.innerHTML = this.incidents.map(i =>
-            `<li><strong>${i.time}</strong> [${i.severity.toUpperCase()}] ${i.label} — ${i.level} zone</li>`
-          ).join('');
-        }
-      },
-      playBeep(severity, level) {
-        try {
-          if (!this.beepCtx) this.beepCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const ctx  = this.beepCtx;
-          const osc  = ctx.createOscillator();
-          const gain = ctx.createGain();
-          const freq = severity === 'danger' ? 880 : severity === 'caution' ? 660 : 440;
-          const dur  = level === 'inner' ? 0.18 : 0.1;
-          osc.type = 'sine'; osc.frequency.value = freq; gain.gain.value = 0.08;
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(); osc.stop(ctx.currentTime + dur);
-        } catch (_) {}
-      },
-    });
-  </script>
-
-  <script>
-    // ── DOM refs ────────────────────────────────────────────────────────
-    const loadingScreen  = document.getElementById('loading-screen');
-    const controlsHint   = document.getElementById('controls-hint');
-    const proximityPrompt = document.getElementById('proximity-prompt');
-    const voiceStatus    = document.getElementById('voice-status');
-    const stopTtsBtn     = document.getElementById('stop-tts-btn');
-    const chatOverlay    = document.getElementById('chat-overlay');
-    const chatWindow     = document.getElementById('chat-window');
-    const chatTopic      = document.getElementById('chat-topic');
-    const userInput      = document.getElementById('user-input');
-    const sendBtn        = document.getElementById('send-btn');
-    const ttsToggleBtn   = document.getElementById('tts-toggle-btn');
-    const scene          = document.querySelector('a-scene');
-
-    // ── VR state ────────────────────────────────────────────────────────
-    let isVR = false;
-    const vrHud    = document.getElementById('vr-hud');
-    const vrTopic  = document.getElementById('vr-topic');
-    const vrMsg    = document.getElementById('vr-msg');
-    const vrStatus = document.getElementById('vr-status');
-
-    // ── Loading screen ──────────────────────────────────────────────────
-    scene.addEventListener('loaded', () => {
-      setTimeout(() => {
-        loadingScreen.classList.add('hidden');
-        setTimeout(() => loadingScreen.style.display = 'none', 900);
-      }, 2600);
-      setInterval(checkProximity, 300);
-    });
-    setTimeout(() => controlsHint.classList.add('hidden'), 7000);
-
-    // ── TTS state ───────────────────────────────────────────────────────
-    let ttsEnabled = false;
-
-    ttsToggleBtn.addEventListener('click', () => {
-      ttsEnabled = !ttsEnabled;
-      if (ttsEnabled) {
-        ttsToggleBtn.textContent = '🔊 Voice ON';
-        ttsToggleBtn.classList.add('tts-on');
-      } else {
-        ttsToggleBtn.textContent = '🔇 Voice OFF';
-        ttsToggleBtn.classList.remove('tts-on');
-        window.speechSynthesis.cancel();
-        voiceStatus.style.display = 'none';
-        stopTtsBtn.style.display  = 'none';
-      }
-    });
-
-    function stopSpeaking() {
-      window.speechSynthesis.cancel();
-      voiceStatus.style.display = 'none';
-      stopTtsBtn.style.display  = 'none';
-    }
-
-    stopTtsBtn.addEventListener('click', stopSpeaking);
-
-    // The status box itself says "click to stop", so make it clickable too.
-    voiceStatus.addEventListener('click', () => {
-      if (voiceStatus.classList.contains('speaking')) stopSpeaking();
-    });
-
-    // ── Active system prompt ────────────────────────────────────────────
-    let activeSystemPrompt = "You are the Virtual Lab Assistant: a conversational AI assistant inside an ELECTRONICS PHYSICS virtual lab. You guide users through step-by-step procedures, safety checks, and calibration tasks via voice and chat. STRICT SCOPE: only answer electronics physics lab questions (circuits, components, instruments, measurement, calibration, and electrical lab safety). If a question is NOT part of the electronics physics lab, do NOT answer it — politely decline and steer the user back to the lab. Keep answers concise and educational, using numbered steps for any procedure.";
-
-    // ── Open / Close chat ───────────────────────────────────────────────
-    function openChat(topic, systemPrompt) {
-      if (topic) { chatTopic.textContent = topic; activeSystemPrompt = systemPrompt; }
-      if (isVR) return; // VR uses the 3D HUD panel instead of the DOM overlay
-      document.exitPointerLock();
-      chatOverlay.style.display = 'block';
-      userInput.focus();
-    }
-
-    document.getElementById('text-quick-btn').addEventListener('click',  () => openChat(null, null));
-    document.getElementById('close-chat').addEventListener('click', () => { chatOverlay.style.display = 'none'; });
-
-    // ── Messages ────────────────────────────────────────────────────────
-    function addMessage(text, sender) {
-      const div = document.createElement('div');
-      div.classList.add('msg', sender);
-      if (sender === 'claude') div.innerHTML = marked.parse(text);
-      else div.textContent = text;
-      chatWindow.appendChild(div);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    // Animated "..." bubble shown while waiting for the assistant's reply.
-    function showTyping() {
-      const div = document.createElement('div');
-      div.classList.add('msg', 'claude', 'typing');
-      div.id = 'typing-indicator';
-      div.innerHTML = '<span></span><span></span><span></span>';
-      chatWindow.appendChild(div);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-    function hideTyping() {
-      const t = document.getElementById('typing-indicator');
-      if (t) t.remove();
-    }
-
-    // ── Voice output ────────────────────────────────────────────────────
-    function speakText(text) {
-      if (!window.speechSynthesis || !ttsEnabled) return;
-      window.speechSynthesis.cancel();
-      const clean = text.replace(/[#*`]/g, '');
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.rate = 1.0; utterance.pitch = 1.0;
-      utterance.onstart = () => {
-        voiceStatus.style.display = 'block';
-        voiceStatus.className = 'speaking';
-        voiceStatus.textContent = '🔊 Speaking... (click to stop)';
-        stopTtsBtn.style.display = 'block';
-      };
-      utterance.onend = () => { voiceStatus.style.display = 'none'; stopTtsBtn.style.display = 'none'; };
-      utterance.onerror = () => { voiceStatus.style.display = 'none'; stopTtsBtn.style.display = 'none'; };
-      window.speechSynthesis.speak(utterance);
-    }
-
-    // ── Backend URL ─────────────────────────────────────────────────────
-    // Local dev uses the Node server (server.js) on localhost:3000 at /chat.
-    // When deployed (Vercel), the backend is the serverless function at /api/chat.
-    const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-    const CHAT_URL = isLocal
-      ? 'http://localhost:3000/chat'
-      : '/api/chat';
-
-    // ── Send message ────────────────────────────────────────────────────
-    async function sendMessage(messageText) {
-      const message = messageText || userInput.value.trim();
-      if (!message) return;
-      addMessage(message, 'user');
-      if (isVR) {
-        vrMsg.setAttribute('value', 'You: ' + message + '\n\nThinking...');
-        vrStatus.setAttribute('value', '⏳ Waiting for response...');
-      }
-      userInput.value = '';
-      sendBtn.disabled = true;
-      sendBtn.textContent = '...';
-      showTyping();
-      try {
-        const response = await fetch(CHAT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, systemPrompt: activeSystemPrompt })
-        });
-        const data = await response.json();
-        hideTyping();
-        addMessage(data.reply, 'claude');
-        if (isVR) {
-          // Strip markdown symbols for plain VR text rendering
-          const plain = data.reply.replace(/[#*`_~>]/g, '').replace(/\n{3,}/g, '\n\n').trim();
-          vrMsg.setAttribute('value', plain.length > 320 ? plain.substring(0, 317) + '...' : plain);
-          vrStatus.setAttribute('value', '[ right trigger = ask another question ]');
-        }
-        speakText(data.reply);
-      } catch (err) {
-        hideTyping();
-        addMessage('⚠️ Could not reach the server. Make sure server.js is running.', 'claude');
-        if (isVR) vrStatus.setAttribute('value', '⚠️ Server error — check your connection.');
-      }
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send';
-    }
-
-    sendBtn.addEventListener('click', () => sendMessage());
-    userInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
-
-    // ── Voice input ─────────────────────────────────────────────────────
-    let recognition = null;
-    let isRecording = false;
-    let capturedText = '';
-    let userStopped  = false;   // true only when the user explicitly stops
-    let sessionStart = 0;       // when the current recognition session began
-    let quickEnds    = 0;       // consecutive instant-ends → browser can't do STT
-    let hardError    = '';      // last fatal recognition error
-    const voiceQuickBtn    = document.getElementById('voice-quick-btn');
-    const recordingOverlay = document.getElementById('recording-overlay');
-    const stopRecBtn       = document.getElementById('stop-rec-btn');
-    const recLabel         = document.getElementById('rec-label');
-
-    function startRecording() {
-      if (!recognition || isRecording) return;
-      capturedText = ''; userStopped = false; quickEnds = 0; hardError = '';
-      try { recognition.start(); } catch (_) {}
-    }
-    function stopRecording() {
-      if (!recognition || !isRecording) return;
-      userStopped = true;
-      // abort() stops instantly; stop() is queued until the API finalizes (the "idle" wait)
-      try { recognition.abort(); } catch (_) {}
-    }
-
-    function setRecordingState(on) {
-      isRecording = on;
-      if (on) {
-        document.exitPointerLock();
-        recordingOverlay.classList.add('active');
-        voiceQuickBtn.classList.add('recording');
-        voiceQuickBtn.innerHTML = '🎙️ Voice<span class="rec-dot"></span>';
-        ttsEnabled = true;
-        ttsToggleBtn.textContent = '🔊 Voice ON';
-        ttsToggleBtn.classList.add('tts-on');
-      } else {
-        recordingOverlay.classList.remove('active');
-        voiceQuickBtn.classList.remove('recording');
-        voiceQuickBtn.innerHTML = '🎙️ Voice<span class="rec-dot"></span>';
-      }
-    }
-
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SR();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onstart = () => { sessionStart = Date.now(); capturedText = ''; setRecordingState(true); };
-
-      // accumulate transcript live as the user speaks
-      recognition.onresult = (e) => {
-        let finalText = '', interimText = '';
-        for (let i = 0; i < e.results.length; i++) {
-          const t = e.results[i][0].transcript;
-          if (e.results[i].isFinal) finalText += t + ' ';
-          else interimText += t;
-        }
-        capturedText = (finalText + interimText).trim();
-        if (recLabel) recLabel.textContent = capturedText ? '🔴 ' + capturedText : '🔴 Listening...';
-      };
-
-      // 'no-speech' / 'aborted' are normal; the rest are real failures we surface.
-      recognition.onerror = (e) => {
-        if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(e.error)) {
-          hardError = e.error;
-        }
-      };
-
-      recognition.onend = () => {
-        const text = capturedText.trim();
-
-        // The user stopped, or we captured speech → finish this session.
-        if (userStopped || text) {
-          userStopped = false; quickEnds = 0; hardError = '';
-          setRecordingState(false);
-          capturedText = '';
-          if (recLabel) recLabel.innerHTML = '🎙️ Press <strong>V</strong> or the button to talk';
-          if (text) sendMessage(text);
-          return;
-        }
-
-        // Ended on its own with no speech. If it ends almost instantly, the
-        // browser can't actually do speech recognition (e.g. Brave) → stop.
-        if (Date.now() - sessionStart < 500) quickEnds++; else quickEnds = 0;
-
-        if (hardError || quickEnds >= 3) {
-          setRecordingState(false);
-          const msg =
-            (hardError === 'not-allowed' || hardError === 'service-not-allowed')
-              ? '🚫 Microphone blocked — allow mic access for this site in your browser.'
-            : hardError === 'audio-capture'
-              ? '🚫 No microphone detected.'
-              : '🚫 Voice input isn’t available in this browser. Try Chrome or Edge, or use the Text button.';
-          quickEnds = 0; hardError = '';
-          if (recLabel) recLabel.textContent = msg;
-          return;
-        }
-
-        // Otherwise keep listening — restart the session.
-        try { recognition.start(); } catch (_) { setRecordingState(false); }
-      };
-
-      // Voice button toggles: press once to start, again to stop
-      voiceQuickBtn.addEventListener('click', () => {
-        if (isRecording) stopRecording(); else startRecording();
-      });
-      // stop targets — button, anywhere on the overlay backdrop
-      stopRecBtn.addEventListener('click', (e) => { e.stopPropagation(); stopRecording(); });
-      recordingOverlay.addEventListener('click', stopRecording);
-    } else {
-      voiceQuickBtn.title = 'Voice input not supported. Use Chrome or Edge.';
-      voiceQuickBtn.style.opacity = '0.4';
-      voiceQuickBtn.style.cursor  = 'not-allowed';
-    }
-
-    // ── AI Proximity Zone Detection ─────────────────────────────────────
-    const zones = document.querySelectorAll('.proximity-zone');
-    let activeZone = null;
-
-    function checkProximity() {
-      const rig = document.getElementById('rig');
-      if (!rig || !rig.object3D) return;
-      const playerPos = rig.object3D.position;
-      let foundZone = null;
-      zones.forEach(zone => {
-        const zonePos = zone.object3D.position;
-        const radius  = parseFloat(zone.getAttribute('radius')) || 0.8;
-        const dx = playerPos.x - zonePos.x;
-        const dz = playerPos.z - zonePos.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist < radius + 0.3) foundZone = zone;
-      });
-      if (foundZone !== activeZone) {
-        activeZone = foundZone;
-        if (activeZone) {
-          proximityPrompt.textContent = activeZone.dataset.prompt;
-          proximityPrompt.style.display = 'block';
-          if (isVR) {
-            vrTopic.setAttribute('value', activeZone.dataset.topic || '🤖 LabMate Assistant');
-            vrMsg.setAttribute('value', 'Press the right trigger to ask a question about this station.');
-            vrStatus.setAttribute('value', '[ right trigger = voice ]');
-          }
-        } else {
-          proximityPrompt.style.display = 'none';
-          if (isVR) {
-            vrTopic.setAttribute('value', '🤖 LabMate Assistant');
-            vrMsg.setAttribute('value', 'Walk near a station to interact.');
-            vrStatus.setAttribute('value', '[ right trigger = voice (near station) ]');
-          }
-        }
-      }
-    }
-
-    // ── Keyboard shortcuts ──────────────────────────────────────────────
-    document.addEventListener('keydown', (e) => {
-      // V toggles recording — works in pointer lock
-      if (e.code === 'KeyV' && chatOverlay.style.display !== 'block') {
-        e.preventDefault();
-        if (isRecording) stopRecording(); else startRecording();
-        return;
-      }
-      // Space also stops recording
-      if (e.code === 'Space' && isRecording) {
-        e.preventDefault();
-        stopRecording();
-        return;
-      }
-      if ((e.key === 'e' || e.key === 'E') && activeZone && chatOverlay.style.display !== 'block') {
-        openChat(activeZone.dataset.topic, activeZone.dataset.system);
-      }
-      if (e.key === 'Escape' && chatOverlay.style.display === 'block') {
-        chatOverlay.style.display = 'none';
-      }
-    });
-
-    // ── VR enter / exit ─────────────────────────────────────────────────
-    const rigEl = document.getElementById('rig');
-    let vrRigYOffset = 0;
-
-    scene.addEventListener('enter-vr', () => {
-      isVR = true;
-      // Raise the rig so VR eye-level aligns with the lab floor.
-      // Quest/PCVR tracking adds real height on top of this, so +0.8 m puts
-      // a seated user (~1.0 m) at the same apparent height as a desktop user.
-      vrRigYOffset = 0.8;
-      rigEl.object3D.position.y += vrRigYOffset;
-      vrHud.setAttribute('visible', 'true');
-      // Unlock AudioContext so beep alerts and TTS work inside the headset.
-      try { new (window.AudioContext || window.webkitAudioContext)().resume(); } catch (_) {}
-    });
-
-    scene.addEventListener('exit-vr', () => {
-      isVR = false;
-      rigEl.object3D.position.y -= vrRigYOffset;
-      vrRigYOffset = 0;
-      vrHud.setAttribute('visible', 'false');
-    });
-
-    // ── VR controller: right trigger = voice, left trigger = open chat ──
-    const rightHandEl = document.getElementById('rightHand');
-    const leftHandEl  = document.getElementById('leftHand');
-
-    rightHandEl.addEventListener('triggerdown', () => {
-      if (!isVR) return;
-      // Unlock speech synthesis on first real user interaction inside VR.
-      try { window.speechSynthesis.cancel(); } catch (_) {}
-      if (!activeZone) {
-        vrStatus.setAttribute('value', '⚠️ Walk closer to a station first');
-        return;
-      }
-      // Set the active system prompt for the nearest station.
-      activeSystemPrompt = activeZone.dataset.system || activeSystemPrompt;
-      if (isRecording) stopRecording(); else startRecording();
-    });
-
-    leftHandEl.addEventListener('triggerdown', () => {
-      if (!isVR || !activeZone) return;
-      // Stop any current TTS when left trigger is pressed.
-      stopSpeaking();
-    });
-
-  </script>
-</body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>LabMate — AI-Powered Laboratory Companion</title>
+		<link rel="stylesheet" href="style.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Share+Tech+Mono&display=swap"
+			rel="stylesheet" />
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+	</head>
+	<body>
+		<!-- Nav Start -->
+		<nav class="navbar" id="navbar">
+			<div class="nav-container">
+				<div class="nav-logo">
+					<span class="logo-icon"><i class="fas fa-robot"></i></span>
+					<span class="logo-text"
+						>Lab<span class="logo-accent">Mate</span></span
+					>
+				</div>
+				<ul class="nav-links" id="navLinks">
+					<li><a href="#home" class="nav-link active">Home</a></li>
+					<li><a href="#experiments" class="nav-link">Experiments</a></li>
+					<li><a href="#safety" class="nav-link">Safety</a></li>
+					<li><a href="#tools" class="nav-link">Tools</a></li>
+					<li><a href="#assistant" class="nav-link">Assistant</a></li>
+					<li>
+						<a
+							href="https://integrated-virtual-lab-assistant.vercel.app/"
+							class="vr-btn"
+							style="text-decoration: none"
+							target="_blank"
+							>Launch VR Virtul Lab</a
+						>
+					</li>
+				</ul>
+				<button class="hamburger" id="hamburger" aria-label="Menu">
+					<span></span><span></span><span></span>
+				</button>
+			</div>
+		</nav>
+		<!-- Nav End -->
+
+		<!-- Hero Start -->
+		<section class="hero" id="home">
+			<div class="hero-content">
+				<h1 class="hero-title">
+					<span class="title-line"
+						>Lab<span class="title-line accent">Mate</span></span
+					>
+				</h1>
+				<p class="hero-subtitle">
+					An intelligent laboratory companion that helps you understand
+					procedures, perform calculations, follow safety standards and gain
+					deeper insights intp scientific experiements anytime, at any moment.
+				</p>
+				<div class="hero-actions">
+					<button class="btn-primary" onclick="scrollToAssistant()">
+						<span class="btn-icon"
+							><i class="fa fa-rocket" aria-hidden="true"></i
+						></span>
+						Launch Assistant
+					</button>
+					<button
+						class="btn-ghost"
+						onclick="
+							document
+								.getElementById('experiments')
+								.scrollIntoView({ behavior: 'smooth' })
+						">
+						<i class="fa fa-search" aria-hidden="true"></i>
+						View Experiments
+					</button>
+					<button class="btn-primary" onclick="scrollToSection('safety')">
+						<span class="btn-icon">
+							<i class="fa fa-warning" aria-hidden="true"></i>
+						</span>
+						Safety Precautions
+					</button>
+				</div>
+			</div>
+		</section>
+		<!-- Hero End -->
+
+		<!-- Experiments Start -->
+		<section class="experiments-section" id="experiments">
+			<div class="section-header">
+				<div class="section-tag">EXPERIMENT LIBRARY</div>
+				<h2 class="section-title">
+					Guided <span class="accent">Experiments</span>
+				</h2>
+				<p class="section-desc">
+					Step-by-step laboratory experiments across engineering and science
+					disciplines.
+				</p>
+			</div>
+
+			<div class="exp-categories">
+				<button class="exp-cat active" data-cat="all">All</button>
+				<button class="exp-cat" data-cat="electrical">
+					Electrical Machines
+				</button>
+				<button class="exp-cat" data-cat="electronics">Electronics</button>
+				<button class="exp-cat" data-cat="physics">Physics</button>
+				<button class="exp-cat" data-cat="chemistry">Chemistry</button>
+				<button class="exp-cat" data-cat="control">Control Systems</button>
+			</div>
+
+			<div class="exp-grid" id="expGrid">
+				<!-- Populated by JS -->
+			</div>
+		</section>
+		<!-- Experiments End -->
+
+		<!-- Safety Start -->
+		<section class="safety-section" id="safety">
+			<div class="section-header">
+				<div class="section-tag">SAFETY CENTER</div>
+				<h2 class="section-title">
+					Laboratory <span class="accent">Safety</span>
+				</h2>
+				<p class="section-desc">
+					Critical safety guidelines every lab user must know. Click a card or
+					ask the assistant.
+				</p>
+			</div>
+
+			<div class="safety-grid">
+				<div class="safety-card" onclick="showSafetyModal('chemical')">
+					<div class="safety-icon chemical">☣</div>
+					<h3>Chemical Safety</h3>
+					<p>
+						Handling hazardous chemicals, acids, bases, and reactive substances
+						safely.
+					</p>
+					<span class="safety-level high">HIGH RISK</span>
+				</div>
+
+				<div class="safety-card" onclick="showSafetyModal('electrical')">
+					<div class="safety-icon electrical">⚡</div>
+					<h3>Electrical Safety</h3>
+					<p>
+						Working with live circuits, high voltage equipment, and electrical
+						tools.
+					</p>
+					<span class="safety-level high">HIGH RISK</span>
+				</div>
+
+				<div class="safety-card" onclick="showSafetyModal('mechanical')">
+					<div class="safety-icon mechanical">⚙</div>
+					<h3>Mechanical Safety</h3>
+					<p>
+						Operating machinery, rotating equipment, and mechanical components.
+					</p>
+					<span class="safety-level medium">MEDIUM RISK</span>
+				</div>
+
+				<div class="safety-card" onclick="showSafetyModal('emergency')">
+					<div class="safety-icon emergency">🚨</div>
+					<h3>Emergency Procedures</h3>
+					<p>
+						Fire, chemical spill, electrical accident, and medical emergency
+						protocols.
+					</p>
+					<span class="safety-level critical">CRITICAL</span>
+				</div>
+
+				<div class="safety-card" onclick="showSafetyModal('ppe')">
+					<div class="safety-icon ppe">🥽</div>
+					<h3>PPE Recommendations</h3>
+					<p>
+						Personal protective equipment requirements for every lab
+						environment.
+					</p>
+					<span class="safety-level medium">REQUIRED</span>
+				</div>
+
+				<div class="safety-card" onclick="showSafetyModal('fire')">
+					<div class="safety-icon fire">🔥</div>
+					<h3>Fire Safety</h3>
+					<p>
+						Flammable material handling, fire extinguisher use, and evacuation.
+					</p>
+					<span class="safety-level high">HIGH RISK</span>
+				</div>
+			</div>
+		</section>
+		<!-- Safety End -->
+
+		<!-- Tools Start -->
+		<section class="tools-section" id="tools">
+			<div class="section-header">
+				<div class="section-tag">CALCULATORS</div>
+				<h2 class="section-title">
+					Laboratory <span class="accent">Tools</span>
+				</h2>
+				<p class="section-desc">
+					Scientific calculators and converters for your engineering work.
+				</p>
+			</div>
+
+			<div class="tools-grid">
+				<!-- Ohm's Law -->
+				<div class="tool-card" id="tool-ohm">
+					<div class="tool-header">
+						<span class="tool-icon">⚡</span>
+						<h3>Ohm's Law</h3>
+						<span class="tool-formula">V = I × R</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Voltage (V)</label>
+							<input type="number" id="ohm-v" placeholder="Volts" />
+						</div>
+						<div class="calc-group">
+							<label>Current (A)</label>
+							<input type="number" id="ohm-i" placeholder="Amps" />
+						</div>
+						<div class="calc-group">
+							<label>Resistance (Ω)</label>
+							<input type="number" id="ohm-r" placeholder="Ohms" />
+						</div>
+						<div class="calc-hint">Leave one field blank to calculate it.</div>
+						<button class="calc-btn" onclick="calcOhm()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="ohm-result"></div>
+					</div>
+				</div>
+
+				<!-- Power Calculator -->
+				<div class="tool-card" id="tool-power">
+					<div class="tool-header">
+						<span class="tool-icon">🔋</span>
+						<h3>Power Calculator</h3>
+						<span class="tool-formula">P = V × I</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Voltage (V)</label>
+							<input type="number" id="pow-v" placeholder="Volts" />
+						</div>
+						<div class="calc-group">
+							<label>Current (A)</label>
+							<input type="number" id="pow-i" placeholder="Amps" />
+						</div>
+						<div class="calc-group">
+							<label>Resistance (Ω) — optional</label>
+							<input type="number" id="pow-r" placeholder="Ohms (optional)" />
+						</div>
+						<button class="calc-btn" onclick="calcPower()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="pow-result"></div>
+					</div>
+				</div>
+
+				<!-- Voltage Divider -->
+				<div class="tool-card" id="tool-voltage">
+					<div class="tool-header">
+						<span class="tool-icon">〰</span>
+						<h3>Voltage Divider</h3>
+						<span class="tool-formula"
+							>V<sub>out</sub> = V<sub>in</sub> × R2/(R1+R2)</span
+						>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Input Voltage (V)</label>
+							<input type="number" id="vd-vin" placeholder="Volts" />
+						</div>
+						<div class="calc-group">
+							<label>R1 (Ω)</label>
+							<input type="number" id="vd-r1" placeholder="Ohms" />
+						</div>
+						<div class="calc-group">
+							<label>R2 (Ω)</label>
+							<input type="number" id="vd-r2" placeholder="Ohms" />
+						</div>
+						<button class="calc-btn" onclick="calcVoltageDivider()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="vd-result"></div>
+					</div>
+				</div>
+
+				<!-- Concentration Calculator -->
+				<div class="tool-card" id="tool-concentration">
+					<div class="tool-header">
+						<span class="tool-icon">🧪</span>
+						<h3>Molarity Calculator</h3>
+						<span class="tool-formula">M = n / V</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Moles of Solute (mol)</label>
+							<input type="number" id="mol-n" placeholder="Moles" />
+						</div>
+						<div class="calc-group">
+							<label>Volume of Solution (L)</label>
+							<input type="number" id="mol-v" placeholder="Litres" />
+						</div>
+						<div class="calc-group">
+							<label>Molar Mass (g/mol) — optional</label>
+							<input type="number" id="mol-m" placeholder="g/mol" />
+						</div>
+						<button class="calc-btn" onclick="calcMolarity()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="mol-result"></div>
+					</div>
+				</div>
+
+				<!-- Capacitor Reactance -->
+				<div class="tool-card" id="tool-reactance">
+					<div class="tool-header">
+						<span class="tool-icon">∿</span>
+						<h3>Reactance Calculator</h3>
+						<span class="tool-formula">Xc = 1/(2πfC)</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Type</label>
+							<select id="react-type">
+								<option value="cap">Capacitive (Xc)</option>
+								<option value="ind">Inductive (Xl)</option>
+							</select>
+						</div>
+						<div class="calc-group">
+							<label>Frequency (Hz)</label>
+							<input type="number" id="react-f" placeholder="Hz" />
+						</div>
+						<div class="calc-group">
+							<label id="react-comp-label">Capacitance (F)</label>
+							<input type="number" id="react-comp" placeholder="Value" />
+						</div>
+						<button class="calc-btn" onclick="calcReactance()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="react-result"></div>
+					</div>
+				</div>
+
+				<!-- Resistance Network -->
+				<div class="tool-card" id="tool-resistance">
+					<div class="tool-header">
+						<span class="tool-icon"
+							><i class="fas fa-project-diagram"></i
+						></span>
+						<h3>Resistance Network</h3>
+						<span class="tool-formula">Series / Parallel</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Mode</label>
+							<select id="res-mode">
+								<option value="series">Series</option>
+								<option value="parallel">Parallel</option>
+							</select>
+						</div>
+						<div class="calc-group">
+							<label>R1 (Ohm)</label>
+							<input type="number" id="res-r1" placeholder="Ohms" />
+						</div>
+						<div class="calc-group">
+							<label>R2 (Ohm)</label>
+							<input type="number" id="res-r2" placeholder="Ohms" />
+						</div>
+						<div class="calc-group">
+							<label>R3 (Ohm) - optional</label>
+							<input type="number" id="res-r3" placeholder="Ohms (optional)" />
+						</div>
+						<button class="calc-btn" onclick="calcResistanceNetwork()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="res-net-result"></div>
+					</div>
+				</div>
+
+				<!-- Capacitor Energy -->
+				<div class="tool-card" id="tool-cap-energy">
+					<div class="tool-header">
+						<span class="tool-icon"><i class="fas fa-bolt"></i></span>
+						<h3>Capacitor Energy</h3>
+						<span class="tool-formula">Q = CV, E = 1/2CV^2</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Capacitance (F)</label>
+							<input type="number" id="cap-c" placeholder="Farads" />
+						</div>
+						<div class="calc-group">
+							<label>Voltage (V)</label>
+							<input type="number" id="cap-v" placeholder="Volts" />
+						</div>
+						<button class="calc-btn" onclick="calcCapacitorEnergy()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="cap-energy-result"></div>
+					</div>
+				</div>
+
+				<!-- Resonance Calculator -->
+				<div class="tool-card" id="tool-resonance">
+					<div class="tool-header">
+						<span class="tool-icon"><i class="fas fa-wave-square"></i></span>
+						<h3>Resonance Calculator</h3>
+						<span class="tool-formula">f0 = 1/(2π√LC)</span>
+					</div>
+					<div class="tool-body">
+						<div class="calc-group">
+							<label>Inductance (H)</label>
+							<input type="number" id="resonance-l" placeholder="Henries" />
+						</div>
+						<div class="calc-group">
+							<label>Capacitance (F)</label>
+							<input type="number" id="resonance-c" placeholder="Farads" />
+						</div>
+						<button class="calc-btn" onclick="calcResonance()">
+							<i class="fas fa-calculator"></i> Calculate
+						</button>
+						<div class="calc-result" id="resonance-result"></div>
+					</div>
+				</div>
+
+				<!-- Unit Converter -->
+				<div class="tool-card wide-card" id="tool-converter">
+					<div class="tool-header">
+						<span class="tool-icon">⇄</span>
+						<h3>Unit Converter</h3>
+						<span class="tool-formula">Electrical & Scientific</span>
+					</div>
+					<div class="tool-body converter-body">
+						<div class="converter-row">
+							<div class="calc-group">
+								<label>Value</label>
+								<input type="number" id="conv-val" placeholder="Enter value" />
+							</div>
+							<div class="calc-group">
+								<label>From</label>
+								<select id="conv-from">
+									<option value="V">Volts (V)</option>
+									<option value="mV">Millivolts (mV)</option>
+									<option value="uV">Microvolts (uV)</option>
+									<option value="kV">Kilovolts (kV)</option>
+									<option value="A">Amperes (A)</option>
+									<option value="mA">Milliamps (mA)</option>
+									<option value="uA">Microamps (μA)</option>
+									<option value="nA">Nanoamps (nA)</option>
+									<option value="W">Watts (W)</option>
+									<option value="mW">Milliwatts (mW)</option>
+									<option value="uW">Microwatts (uW)</option>
+									<option value="kW">Kilowatts (kW)</option>
+									<option value="Ohm">Ohms (Ω)</option>
+									<option value="mOhm">Milliohms (mOhm)</option>
+									<option value="kOhm">Kilohms (kΩ)</option>
+									<option value="MOhm">Megaohms (MΩ)</option>
+									<option value="GOhm">Gigaohms (GOhm)</option>
+									<option value="Hz">Hertz (Hz)</option>
+									<option value="kHz">Kilohertz (kHz)</option>
+									<option value="MHz">Megahertz (MHz)</option>
+									<option value="GHz">Gigahertz (GHz)</option>
+									<option value="F">Farads (F)</option>
+									<option value="mF">Millifarads (mF)</option>
+									<option value="uF">Microfarads (μF)</option>
+									<option value="nF">Nanofarads (nF)</option>
+									<option value="pF">Picofarads (pF)</option>
+								</select>
+							</div>
+							<div class="calc-group">
+								<label>To</label>
+								<select id="conv-to">
+									<option value="mV">Millivolts (mV)</option>
+									<option value="uV">Microvolts (uV)</option>
+									<option value="V">Volts (V)</option>
+									<option value="kV">Kilovolts (kV)</option>
+									<option value="mA">Milliamps (mA)</option>
+									<option value="A">Amperes (A)</option>
+									<option value="uA">Microamps (μA)</option>
+									<option value="nA">Nanoamps (nA)</option>
+									<option value="mW">Milliwatts (mW)</option>
+									<option value="uW">Microwatts (uW)</option>
+									<option value="W">Watts (W)</option>
+									<option value="kW">Kilowatts (kW)</option>
+									<option value="mOhm">Milliohms (mOhm)</option>
+									<option value="kOhm">Kilohms (kΩ)</option>
+									<option value="Ohm">Ohms (Ω)</option>
+									<option value="MOhm">Megaohms (MΩ)</option>
+									<option value="GOhm">Gigaohms (GOhm)</option>
+									<option value="kHz">Kilohertz (kHz)</option>
+									<option value="Hz">Hertz (Hz)</option>
+									<option value="MHz">Megahertz (MHz)</option>
+									<option value="GHz">Gigahertz (GHz)</option>
+									<option value="mF">Millifarads (mF)</option>
+									<option value="uF">Microfarads (μF)</option>
+									<option value="nF">Nanofarads (nF)</option>
+									<option value="pF">Picofarads (pF)</option>
+									<option value="F">Farads (F)</option>
+								</select>
+							</div>
+						</div>
+						<div class="converter-actions">
+							<button
+								class="calc-btn secondary-btn"
+								onclick="swapConverterUnits()">
+								Swap Units
+							</button>
+							<button class="calc-btn" onclick="convertUnit()">Convert</button>
+						</div>
+						<div class="calc-result" id="conv-result"></div>
+					</div>
+				</div>
+			</div>
+		</section>
+		<!-- Tools End -->
+
+		<!-- Assistant Start -->
+		<section class="assistant-section" id="assistant">
+			<div class="section-header">
+				<h2 class="section-title">
+					<span class="accent">AI</span> Lab Assistant
+				</h2>
+				<p class="section-desc">
+					Ask anything — voice or text. Your intelligent laboratory guide is
+					ready.
+				</p>
+			</div>
+			<div class="assistant-dashboard">
+				<!-- Status Bar -->
+				<div class="assistant-statusbar">
+					<div class="status-indicator" id="statusIndicator">
+						<span class="status-dot" id="statusDot"></span>
+						<span class="status-text" id="statusText">Ready</span>
+					</div>
+					<div class="status-actions">
+						<button
+							class="action-btn"
+							onclick="clearChat()"
+							title="Clear conversation">
+							<i class="fas fa-trash"></i> Clear
+						</button>
+						<button
+							class="action-btn"
+							onclick="exportChat()"
+							title="Export chat">
+							<i class="fas fa-file-export"></i> Export
+						</button>
+					</div>
+				</div>
+				<!-- Chat Window -->
+				<div class="chat-window" id="chatWindow">
+					<div class="chat-welcome">
+						<div class="welcome-icon"><i class="fas fa-robot"></i></div>
+						<p class="welcome-title">LabMate is ready.</p>
+						<p class="welcome-hint">Do you want our prompt-library?</p>
+						<div class="quick-prompts">
+							<div class="prompt-library" id="assistantPromptLibrary"></div>
+							<button
+								class="quick-btn"
+								id="promptLibraryToggleBtn"
+								onclick="displayPromptLibrary()">
+								Show Prompt Library
+							</button>
+						</div>
+						<p class="welcome-hint">
+							Or you can try:
+							<em>"Guide me through a Wheatstone bridge experiment"</em> ·
+						</p>
+						<div class="quick-prompts">
+							<button
+								class="quick-btn"
+								onclick="sendQuick('Explain inductance')">
+								Inductance?
+							</button>
+							<button
+								class="quick-btn"
+								onclick="sendQuick('What PPE should I wear in the lab?')">
+								PPE Guide
+							</button>
+							<button
+								class="quick-btn"
+								onclick="sendQuick('How to use a multimeter?')">
+								Multimeter
+							</button>
+							<button
+								class="quick-btn"
+								onclick="
+									sendQuick('Guide me through a transformer experiment')
+								">
+								Transformer Exp.
+							</button>
+						</div>
+					</div>
+				</div>
+				<!-- Input Area -->
+				<div class="chat-input-area">
+					<div class="input-wrap">
+						<textarea
+							class="chat-input"
+							id="chatInput"
+							placeholder="Ask about circuits, experiments, safety, or any science topic…"
+							rows="1"></textarea>
+						<div class="input-actions">
+							<button
+								class="voice-btn"
+								id="voiceBtn"
+								onclick="toggleVoice()"
+								title="Voice input">
+								<span class="mic-icon" id="micIcon"
+									><i
+										class="fa fa-microphone"
+										aria-hidden="true"
+										style="color: white"></i
+								></span>
+							</button>
+							<button class="send-btn" onclick="sendMessage()" id="sendBtn">
+								<span>Send</span
+								><span class="send-arrow"
+									><i class="fas fa-paper-plane"></i
+								></span>
+							</button>
+						</div>
+					</div>
+					<div class="voice-feedback" id="voiceFeedback"></div>
+				</div>
+			</div>
+		</section>
+		<!-- Assistant End -->
+
+		<!-- Footer Start -->
+		<footer class="footer">
+			<div class="footer-container">
+				<div class="footer-brand">
+					<span class="logo-icon"><i class="fas fa-robot"></i></span>
+					<span class="logo-text"
+						>Lab<span class="logo-accent">Mate</span></span
+					>
+					<p>
+						LabMate — Empowering the next generation of engineers through
+						intelligent, accessible education.
+					</p>
+				</div>
+				<div class="footer-links">
+					<h4>Navigation</h4>
+					<a href="#home">Home</a>
+					<a href="#experiments">Experiments</a>
+					<a href="#safety">Safety</a>
+					<a href="#tools">Tools</a>
+					<a href="#assistant">Assistant</a>
+				</div>
+				<div class="footer-contact">
+					<h4>Team Info</h4>
+					<p>Group 8</p>
+					<p>Department of Computer Engineering</p>
+					<p>Kwame Nkrumah University Of Science and Technology</p>
+				</div>
+			</div>
+			<div class="footer-bottom">
+				<script>
+					function updateYear() {
+						const yearText = document.getElementById('currentYear');
+						if (yearText) {
+							yearText.textContent = new Date().getFullYear();
+						}
+					}
+				</script>
+				<span
+					>&copy; <span id="currentYear"></span> LabMate · University
+					Engineering Hackathon</span
+				>
+				<span
+					>Built with <i class="fas fa-heart"></i> for science education</span
+				>
+			</div>
+		</footer>
+		<!-- Footer End -->
+
+		<!-- Modals Start -->
+		<!-- Saftey Modal Start -->
+		<div
+			class="modal-overlay"
+			id="safetyModal"
+			onclick="closeSafetyModal(event)">
+			<div class="modal-box">
+				<button class="modal-close" onclick="closeSafetyModal()">✕</button>
+				<div class="modal-icon" id="modalIcon"></div>
+				<h2 id="modalTitle"></h2>
+				<div class="modal-content" id="modalContent"></div>
+				<button class="calc-btn" onclick="askAssistantSafety()">
+					Ask Assistant for More
+				</button>
+			</div>
+		</div>
+		<!-- Safety Modal End -->
+		<!-- Experiments Modal Start -->
+		<div class="modal-overlay" id="expModal" onclick="closeExpModal(event)">
+			<div class="modal-box exp-modal-box">
+				<button class="modal-close" onclick="closeExpModal()">✕</button>
+				<div class="exp-modal-header" id="expModalHeader"></div>
+				<div class="exp-modal-content" id="expModalContent"></div>
+				<button class="calc-btn" onclick="guideExperiment()">
+					Get AI Guidance
+				</button>
+			</div>
+		</div>
+		<!-- Experiments Modal End -->
+		<!-- Modals End -->
+
+		<script src="script.js"></script>
+	</body>
 </html>
