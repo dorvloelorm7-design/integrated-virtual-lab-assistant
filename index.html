@@ -143,6 +143,33 @@
     #voice-quick-btn.recording .rec-dot { display: block; }
     @keyframes rec-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
 
+    /* ── Controls modal ── */
+    #controls-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+      z-index: 9999; display: none; align-items: center; justify-content: center;
+    }
+    #controls-modal.open { display: flex; }
+    #controls-card {
+      background: #080d18; border: 1px solid #1a3a5a; border-radius: 18px;
+      padding: 28px 34px; max-width: 680px; width: 92%; color: #c8deff;
+      font-family: 'Courier New', monospace;
+    }
+    #controls-card h2 { color: #00aaff; margin: 0 0 20px; font-size: 1.05rem;
+      letter-spacing: 0.1em; text-align: center; }
+    .controls-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .controls-col h3 { color: #4a9aff; font-size: 0.8rem; margin: 0 0 10px;
+      border-bottom: 1px solid #1a3a5a; padding-bottom: 6px; letter-spacing: 0.08em; }
+    .ctrl-row { display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 9px; gap: 10px; }
+    .ctrl-key { background: #0d1829; border: 1px solid #2a4a7a; border-radius: 6px;
+      padding: 2px 7px; font-size: 0.72rem; color: #7ab8ff; white-space: nowrap; flex-shrink: 0; }
+    .ctrl-desc { font-size: 0.72rem; color: #8ab0d4; text-align: right; }
+    #close-controls { display: block; margin: 22px auto 0; background: none;
+      border: 1px solid #2a4a7a; color: #7ab8ff; font-family: 'Courier New', monospace;
+      padding: 8px 28px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+    #close-controls:hover { background: #1a3a5a; }
+    #help-btn { font-size: 0.95rem; }
+
     /* ── Chat overlay ── */
     #chat-overlay {
       display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -284,10 +311,40 @@
   </div>
   <button id="stop-tts-btn" title="Stop speaking">⏹ Stop</button>
 
+  <!-- Controls reference modal -->
+  <div id="controls-modal">
+    <div id="controls-card">
+      <h2>🎮 Controls</h2>
+      <div class="controls-cols">
+        <div class="controls-col">
+          <h3>Desktop</h3>
+          <div class="ctrl-row"><span class="ctrl-key">WASD / ↑↓←→</span><span class="ctrl-desc">Move</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Mouse drag</span><span class="ctrl-desc">Look around</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">E</span><span class="ctrl-desc">Open AI chat (near a station)</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">V</span><span class="ctrl-desc">Start / stop voice input</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Space</span><span class="ctrl-desc">Stop voice recording</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Esc</span><span class="ctrl-desc">Close chat</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">P</span><span class="ctrl-desc">Show XYZ coordinates</span></div>
+        </div>
+        <div class="controls-col">
+          <h3>VR — Quest</h3>
+          <div class="ctrl-row"><span class="ctrl-key">Left thumbstick</span><span class="ctrl-desc">Move / strafe</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Right controller</span><span class="ctrl-desc">Cyan laser pointer</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Right trigger</span><span class="ctrl-desc">Open chat (near station or aim at glowing orb)</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Right trigger</span><span class="ctrl-desc">Start / stop voice (while chat is open)</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Left trigger</span><span class="ctrl-desc">Close chat / stop AI voice</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Aim at screen</span><span class="ctrl-desc">Point at portal → see website URL</span></div>
+        </div>
+      </div>
+      <button id="close-controls">Close</button>
+    </div>
+  </div>
+
   <!-- Assistant button group -->
   <div id="assistant-btns">
     <button class="quick-btn" id="voice-quick-btn">🎙️ Voice<span class="rec-dot"></span></button>
     <button class="quick-btn" id="text-quick-btn">⌨️ Text</button>
+    <button class="quick-btn" id="help-btn">? Help</button>
   </div>
 
   <!-- Safety HUD (Addy's system) -->
@@ -547,10 +604,10 @@
       <a-text id="vr-topic" value="🤖 LabMate Assistant" color="#00aaff"
         position="0 0.36 0.005" align="center" width="1.6" wrap-count="38"></a-text>
       <a-text id="vr-msg"
-        value="Walk near a glowing orb or a station, then press the right trigger to speak."
+        value="Left thumbstick = move&#10;Walk near a glowing orb or station&#10;Right trigger = open chat / start voice&#10;Left trigger = close chat / stop voice"
         color="#c8deff" position="-0.78 0.2 0.005" align="left" width="1.55"
         wrap-count="40" baseline="top"></a-text>
-      <a-text id="vr-status" value="[ right trigger = start / stop voice ]"
+      <a-text id="vr-status" value="[ right trigger = open chat near a station ]"
         color="#4a7a9b" position="0 -0.39 0.005" align="center" width="1.6"
         wrap-count="42"></a-text>
     </a-entity>
@@ -952,7 +1009,13 @@
       if (!isVR) cameraEl.setAttribute('look-controls', 'pointerLockEnabled: true');
     }
 
-    document.getElementById('text-quick-btn').addEventListener('click',  () => openChat(null, null));
+    document.getElementById('text-quick-btn').addEventListener('click', () => openChat(null, null));
+    document.getElementById('help-btn').addEventListener('click', () => {
+      document.getElementById('controls-modal').classList.add('open');
+    });
+    document.getElementById('close-controls').addEventListener('click', () => {
+      document.getElementById('controls-modal').classList.remove('open');
+    });
     document.getElementById('close-chat').addEventListener('click', closeChat);
 
     // ── Messages ────────────────────────────────────────────────────────
