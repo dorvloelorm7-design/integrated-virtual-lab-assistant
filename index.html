@@ -202,11 +202,11 @@
       margin-bottom: 14px; border-bottom: 1px solid #1a3a5a; padding-bottom: 12px;
     }
     #chat-topic { font-size: 0.95rem; color: #00aaff; letter-spacing: 0.08em; }
-    #close-chat { display: block; width: 100%; margin-top: 10px; padding: 10px; background: #1a0a0f; border: 1px solid #ff3355; color: #ff6677; font-size: 0.85rem; font-family: 'Courier New', monospace; border-radius: 8px; cursor: pointer; transition: background 0.2s, color 0.2s; text-align: center; }
-    #close-chat:hover { background: #ff3355; color: #fff; }
+    #close-chat { background: #cc1133; border: none; color: #fff; font-size: 0.85rem; font-family: 'Courier New', monospace; font-weight: bold; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+    #close-chat:hover { background: #ff2244; }
 
     #chat-window {
-      height: 240px; overflow-y: auto; background: #050a12;
+      height: 200px; overflow-y: auto; background: #050a12;
       border-radius: 8px; padding: 12px; margin-bottom: 14px;
       scrollbar-width: thin; scrollbar-color: #1a3a5a transparent;
     }
@@ -388,7 +388,10 @@
   <div id="chat-overlay">
     <div id="chat-header">
       <span id="chat-topic">🤖 LabMate Assistant</span>
-      <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="tts-toggle-btn" title="Toggle voice output">🔇 Voice OFF</button>
+        <button id="close-chat">✕ Close</button>
+      </div>
     </div>
     <div id="chat-window"></div>
 
@@ -398,7 +401,6 @@
         <input id="user-input" type="text" placeholder="Ask the lab assistant..." />
         <button id="send-btn">Send</button>
       </div>
-      <button id="close-chat">✕ Close Chat</button>
     </div>
   </div>
 
