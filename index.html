@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1141,15 +1141,14 @@
         if (hardError || quickEnds >= 3) {
           setRecordingState(false);
           const msg =
-            (hardError === ‘not-allowed’ || hardError === ‘service-not-allowed’)
-              ? ‘🚫 Mic blocked — allow microphone access in your browser settings.’
-            : hardError === ‘audio-capture’
-              ? ‘🚫 No microphone detected.’
-              : ‘🚫 Voice unavailable in this browser — try Chrome/Edge, or use the Text button.’;
-          quickEnds = 0; hardError = ‘’;
+            (hardError === 'not-allowed' || hardError === 'service-not-allowed')
+              ? '🚫 Mic blocked — allow microphone access in your browser settings.'
+            : hardError === 'audio-capture'
+              ? '🚫 No microphone detected.'
+              : '🚫 Voice unavailable in this browser — try Chrome/Edge, or use the Text button.';
+          quickEnds = 0; hardError = '';
           if (recLabel) recLabel.textContent = msg;
-          // Show the error inside the VR HUD so the user can see it in the headset.
-          if (isVR) vrStatus.setAttribute(‘value’, msg);
+          if (isVR) vrStatus.setAttribute('value', msg);
           return;
         }
 
