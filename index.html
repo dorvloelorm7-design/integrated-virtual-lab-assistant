@@ -1524,6 +1524,8 @@
       if (chatOverlay.style.display === 'block') {
         if (isRecording) {
           stopRecording();
+        } else if (!recognition) {
+          vrStatus.setAttribute('value', '⚠️ Voice not available in this browser — use the Text box');
         } else {
           startRecording();
           vrStatus.setAttribute('value', '🔴 Listening... press trigger again to send');
