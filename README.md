@@ -80,12 +80,12 @@ Alternatively, create a ```.env``` file.
 npm start
 ```
 Expected output:
-```Lab assistant server running at http://localhost:3000
-```
+Lab assistant server running at http://localhost:3000
+
 ### Launch the Frontend
 Open:
-```index.html
-```
+index.html
+
 in:
 - Google Chrome
 - Microsoft Edge
@@ -151,6 +151,3 @@ The application can be deployed on:
 ## License
 No license specified.
 
-## Author
-Group 8 
-Team Velocitas Ignis
