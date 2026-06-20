@@ -438,6 +438,21 @@
     <a-entity id="rig" position="0.06 0 3" movement-controls="speed: 0.09; fly: false" lab-collider>
       <a-camera id="camera" position="0 2.4 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
         <a-cursor color="#7df" opacity="0.6" fuse="false" raycaster="objects: .interactive"></a-cursor>
+
+        <!-- VR HUD — 3D panel fixed 1.5 m in front of eyes, only visible in VR mode -->
+        <a-entity id="vr-hud" visible="false" position="0 -0.15 -1.5">
+          <a-plane width="1.6" height="0.82"
+            material="color: #050a12; opacity: 0.93; transparent: true; shader: flat"></a-plane>
+          <a-text id="vr-topic" value="🤖 LabMate Assistant" color="#00aaff"
+            position="0 0.34 0.005" align="center" width="1.5" wrap-count="36"></a-text>
+          <a-text id="vr-msg"
+            value="Walk near a station. Press the right trigger to ask a question."
+            color="#c8deff" position="-0.72 0.2 0.005" align="left" width="1.44"
+            wrap-count="38" baseline="top"></a-text>
+          <a-text id="vr-status" value="[ right trigger = voice ]"
+            color="#4a7a9b" position="0 -0.36 0.005" align="center" width="1.5"
+            wrap-count="40"></a-text>
+        </a-entity>
       </a-camera>
 
       <!-- VR HANDS — visible hand models when using a headset with controllers -->
@@ -482,8 +497,14 @@
             this.allMeshes.push(o);
             const b = new THREE.Box3().setFromObject(o);
             if (!isFinite(b.min.x)) return;
-            const area = (b.max.x - b.min.x) * (b.max.z - b.min.z);
+            const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
+            const area = sx * sz;
             if (area > biggestArea) { biggestArea = area; biggest = b; }
+            // Furniture-sized footprints (not the room shell, not tiny decorations).
+            // Height-independent, so they catch tabletops that horizontal rays miss.
+            if (sx < 7 && sz < 7 && (sx > 0.1 || sz > 0.1)) {
+              this.boxes.push({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z });
+            }
           });
 
           // Generous backstop so the player can never escape the model entirely.
@@ -495,7 +516,8 @@
           }
 
           this.ready = true;
-          console.log('[lab-collider] raycast meshes:', this.allMeshes.length);
+          console.log('[lab-collider] raycast meshes:', this.allMeshes.length,
+                      '· footprint boxes:', this.boxes.length);
         };
 
         if (lab.getObject3D('mesh')) build();
@@ -526,6 +548,17 @@
         return false;
       },
 
+      // Is (x,z) inside any furniture footprint (XZ bounding box)?
+      // Catches tables/benches that horizontal rays can slip through between heights.
+      blocked(x, z) {
+        const p = 0.2; // tighter pad than ray fan; avoids blocking doorways
+        for (const b of this.boxes) {
+          if (x > b.minX - p && x < b.maxX + p &&
+              z > b.minZ - p && z < b.maxZ + p) return true;
+        }
+        return false;
+      },
+
       tick() {
         if (!this.ready) return;
         const pos = this.el.object3D.position;
@@ -534,11 +567,14 @@
         const dx = pos.x - this.last.x;
         const dz = pos.z - this.last.z;
 
-        // Block each axis separately → lets the player slide along surfaces.
-        if (dx !== 0 && this.obstacle(this.last.x, this.last.z, Math.sign(dx), 0, Math.abs(dx))) {
+        // Block each axis separately → player can slide along surfaces.
+        // Ray fan catches walls; footprint boxes catch flat table/bench tops.
+        if (dx !== 0 && (this.obstacle(this.last.x, this.last.z, Math.sign(dx), 0, Math.abs(dx)) ||
+            this.blocked(pos.x, this.last.z))) {
           pos.x = this.last.x;
         }
-        if (dz !== 0 && this.obstacle(pos.x, this.last.z, 0, Math.sign(dz), Math.abs(dz))) {
+        if (dz !== 0 && (this.obstacle(pos.x, this.last.z, 0, Math.sign(dz), Math.abs(dz)) ||
+            this.blocked(pos.x, pos.z))) {
           pos.z = this.last.z;
         }
 
@@ -719,6 +755,13 @@
     const ttsToggleBtn   = document.getElementById('tts-toggle-btn');
     const scene          = document.querySelector('a-scene');
 
+    // ── VR state ────────────────────────────────────────────────────────
+    let isVR = false;
+    const vrHud    = document.getElementById('vr-hud');
+    const vrTopic  = document.getElementById('vr-topic');
+    const vrMsg    = document.getElementById('vr-msg');
+    const vrStatus = document.getElementById('vr-status');
+
     // ── Loading screen ──────────────────────────────────────────────────
     scene.addEventListener('loaded', () => {
       setTimeout(() => {
@@ -765,6 +808,7 @@
     // ── Open / Close chat ───────────────────────────────────────────────
     function openChat(topic, systemPrompt) {
       if (topic) { chatTopic.textContent = topic; activeSystemPrompt = systemPrompt; }
+      if (isVR) return; // VR uses the 3D HUD panel instead of the DOM overlay
       document.exitPointerLock();
       chatOverlay.style.display = 'block';
       userInput.focus();
@@ -828,6 +872,10 @@
       const message = messageText || userInput.value.trim();
       if (!message) return;
       addMessage(message, 'user');
+      if (isVR) {
+        vrMsg.setAttribute('value', 'You: ' + message + '\n\nThinking...');
+        vrStatus.setAttribute('value', '⏳ Waiting for response...');
+      }
       userInput.value = '';
       sendBtn.disabled = true;
       sendBtn.textContent = '...';
@@ -841,10 +889,17 @@
         const data = await response.json();
         hideTyping();
         addMessage(data.reply, 'claude');
+        if (isVR) {
+          // Strip markdown symbols for plain VR text rendering
+          const plain = data.reply.replace(/[#*`_~>]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+          vrMsg.setAttribute('value', plain.length > 320 ? plain.substring(0, 317) + '...' : plain);
+          vrStatus.setAttribute('value', '[ right trigger = ask another question ]');
+        }
         speakText(data.reply);
       } catch (err) {
         hideTyping();
         addMessage('⚠️ Could not reach the server. Make sure server.js is running.', 'claude');
+        if (isVR) vrStatus.setAttribute('value', '⚠️ Server error — check your connection.');
       }
       sendBtn.disabled = false;
       sendBtn.textContent = 'Send';
@@ -992,8 +1047,18 @@
         if (activeZone) {
           proximityPrompt.textContent = activeZone.dataset.prompt;
           proximityPrompt.style.display = 'block';
+          if (isVR) {
+            vrTopic.setAttribute('value', activeZone.dataset.topic || '🤖 LabMate Assistant');
+            vrMsg.setAttribute('value', 'Press the right trigger to ask a question about this station.');
+            vrStatus.setAttribute('value', '[ right trigger = voice ]');
+          }
         } else {
           proximityPrompt.style.display = 'none';
+          if (isVR) {
+            vrTopic.setAttribute('value', '🤖 LabMate Assistant');
+            vrMsg.setAttribute('value', 'Walk near a station to interact.');
+            vrStatus.setAttribute('value', '[ right trigger = voice (near station) ]');
+          }
         }
       }
     }
@@ -1018,6 +1083,52 @@
       if (e.key === 'Escape' && chatOverlay.style.display === 'block') {
         chatOverlay.style.display = 'none';
       }
+    });
+
+    // ── VR enter / exit ─────────────────────────────────────────────────
+    const rigEl = document.getElementById('rig');
+    let vrRigYOffset = 0;
+
+    scene.addEventListener('enter-vr', () => {
+      isVR = true;
+      // Raise the rig so VR eye-level aligns with the lab floor.
+      // Quest/PCVR tracking adds real height on top of this, so +0.8 m puts
+      // a seated user (~1.0 m) at the same apparent height as a desktop user.
+      vrRigYOffset = 0.8;
+      rigEl.object3D.position.y += vrRigYOffset;
+      vrHud.setAttribute('visible', 'true');
+      // Unlock AudioContext so beep alerts and TTS work inside the headset.
+      try { new (window.AudioContext || window.webkitAudioContext)().resume(); } catch (_) {}
+    });
+
+    scene.addEventListener('exit-vr', () => {
+      isVR = false;
+      rigEl.object3D.position.y -= vrRigYOffset;
+      vrRigYOffset = 0;
+      vrHud.setAttribute('visible', 'false');
+    });
+
+    // ── VR controller: right trigger = voice, left trigger = open chat ──
+    const rightHandEl = document.getElementById('rightHand');
+    const leftHandEl  = document.getElementById('leftHand');
+
+    rightHandEl.addEventListener('triggerdown', () => {
+      if (!isVR) return;
+      // Unlock speech synthesis on first real user interaction inside VR.
+      try { window.speechSynthesis.cancel(); } catch (_) {}
+      if (!activeZone) {
+        vrStatus.setAttribute('value', '⚠️ Walk closer to a station first');
+        return;
+      }
+      // Set the active system prompt for the nearest station.
+      activeSystemPrompt = activeZone.dataset.system || activeSystemPrompt;
+      if (isRecording) stopRecording(); else startRecording();
+    });
+
+    leftHandEl.addEventListener('triggerdown', () => {
+      if (!isVR || !activeZone) return;
+      // Stop any current TTS when left trigger is pressed.
+      stopSpeaking();
     });
 
   </script>
