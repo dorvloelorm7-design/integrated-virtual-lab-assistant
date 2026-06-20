@@ -185,6 +185,19 @@
     .msg.claude table { border-collapse: collapse; font-size: 0.78rem; width: 100%; margin: 6px 0; }
     .msg.claude th, .msg.claude td { border: 1px solid #1a3a5a; padding: 4px 8px; }
 
+    /* ── Typing indicator (shown while waiting for a reply) ── */
+    .msg.typing { display: flex; gap: 4px; align-items: center; width: fit-content; }
+    .msg.typing span {
+      width: 7px; height: 7px; border-radius: 50%; background: #4a7a9b;
+      animation: typing-bounce 1.2s infinite ease-in-out both;
+    }
+    .msg.typing span:nth-child(2) { animation-delay: 0.15s; }
+    .msg.typing span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typing-bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40%           { transform: scale(1);   opacity: 1;   }
+    }
+
     /* ── Text panel ── */
     #text-panel { display: block; }
     #input-row { display: flex; gap: 8px; align-items: center; }
@@ -498,9 +511,12 @@
         const far = dist + this.data.pad;
         const px = -dirZ, pz = dirX;            // perpendicular (for side offsets)
         this.rayDir.set(dirX, 0, dirZ);
-        for (const off of [-0.3, 0, 0.3]) {
+        // Dense fan: lateral samples close enough not to slip between table legs,
+        // heights stepped finely so a ray always lands on a tabletop / bench top
+        // (~0.75-0.9m) instead of passing under or over it.
+        for (const off of [-0.35, -0.18, 0, 0.18, 0.35]) {
           const ox = x + px * off, oz = z + pz * off;
-          for (const h of [0.4, 1.1, 1.8]) {
+          for (const h of [0.3, 0.6, 0.8, 1.0, 1.3, 1.8]) {
             this.rayOrigin.set(ox, h, oz);
             this.ray.set(this.rayOrigin, this.rayDir);
             this.ray.far = far;
@@ -767,6 +783,20 @@
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
+    // Animated "..." bubble shown while waiting for the assistant's reply.
+    function showTyping() {
+      const div = document.createElement('div');
+      div.classList.add('msg', 'claude', 'typing');
+      div.id = 'typing-indicator';
+      div.innerHTML = '<span></span><span></span><span></span>';
+      chatWindow.appendChild(div);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+    function hideTyping() {
+      const t = document.getElementById('typing-indicator');
+      if (t) t.remove();
+    }
+
     // ── Voice output ────────────────────────────────────────────────────
     function speakText(text) {
       if (!window.speechSynthesis || !ttsEnabled) return;
@@ -801,6 +831,7 @@
       userInput.value = '';
       sendBtn.disabled = true;
       sendBtn.textContent = '...';
+      showTyping();
       try {
         const response = await fetch(CHAT_URL, {
           method: 'POST',
@@ -808,9 +839,11 @@
           body: JSON.stringify({ message, systemPrompt: activeSystemPrompt })
         });
         const data = await response.json();
+        hideTyping();
         addMessage(data.reply, 'claude');
         speakText(data.reply);
       } catch (err) {
+        hideTyping();
         addMessage('⚠️ Could not reach the server. Make sure server.js is running.', 'claude');
       }
       sendBtn.disabled = false;
