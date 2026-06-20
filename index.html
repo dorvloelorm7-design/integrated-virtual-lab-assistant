@@ -332,6 +332,7 @@
     background="color: #0a0f1a"
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true; toneMapping: ACESFilmic; exposure: 1.5"
     fog="type: linear; color: #0a0f1a; near: 8; far: 20"
+    webxr="optionalFeatures: dom-overlay; overlayElement: #chat-overlay"
   >
     <a-assets timeout="30000">
       <a-asset-item id="lab-model" src="67.glb"></a-asset-item>
@@ -933,13 +934,11 @@
     function openChat(topic, systemPrompt) {
       if (topic) { chatTopic.textContent = topic; activeSystemPrompt = systemPrompt; }
       if (isVR) {
-        // In VR the DOM overlay is hidden — update the 3D HUD instead so the
-        // user can see the station context and knows to press the trigger.
-        if (topic) {
-          vrTopic.setAttribute('value', topic);
-          vrMsg.setAttribute('value', 'Station selected!\nPress the right trigger and speak your question.');
-          vrStatus.setAttribute('value', '[ right trigger = start / stop voice ]');
-        }
+        // In VR, show the chat overlay as a WebXR DOM overlay (Quest Browser renders it
+        // as a 2-D panel inside the headset so the user can type or use voice).
+        if (topic) vrTopic.setAttribute('value', topic);
+        chatOverlay.style.display = 'block';
+        setTimeout(() => userInput.focus(), 150);
         return;
       }
       document.exitPointerLock();
@@ -950,7 +949,7 @@
 
     function closeChat() {
       chatOverlay.style.display = 'none';
-      cameraEl.setAttribute('look-controls', 'pointerLockEnabled: true');
+      if (!isVR) cameraEl.setAttribute('look-controls', 'pointerLockEnabled: true');
     }
 
     document.getElementById('text-quick-btn').addEventListener('click',  () => openChat(null, null));
@@ -1287,6 +1286,12 @@
     const portalEl = document.getElementById('website-portal');
     if (portalEl) {
       portalEl.addEventListener('click', () => {
+        if (isVR) {
+          vrTopic.setAttribute('value', '🌐 LabMate Website');
+          vrMsg.setAttribute('value', 'Visit from a computer or phone:\nlab-mate-khaki.vercel.app');
+          vrStatus.setAttribute('value', '[ take off headset to browse ]');
+          return;
+        }
         window.open('https://lab-mate-khaki.vercel.app/', '_blank', 'noopener');
       });
       portalEl.addEventListener('mouseenter', () => {
@@ -1450,34 +1455,56 @@
 
     rightHandEl.addEventListener('triggerdown', () => {
       if (!isVR) return;
-      // Unlock speech synthesis on first real user interaction inside VR.
       try { window.speechSynthesis.cancel(); } catch (_) {}
 
-      // If the controller is pointing at a station hotspot, open that station.
+      // If chat overlay is already open: right trigger starts / stops voice.
+      if (chatOverlay.style.display === 'block') {
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+          vrStatus.setAttribute('value', '🔴 Listening... press trigger again to send');
+        }
+        return;
+      }
+
+      // Resolve which A-Frame entity the controller is pointing at.
+      // Three.js intersection.object is the raw Mesh; .el lives on the parent object3D Group.
       const rc = rightHandEl.components && rightHandEl.components.raycaster;
+      let handled = false;
       if (rc && rc.intersections && rc.intersections.length > 0) {
-        const hit = rc.intersections[0].object && rc.intersections[0].object.el;
-        if (hit && hit.classList.contains('interactive')) {
-          const topic = hit.dataset.topic;
-          const zone  = Array.from(zones).find(z => z.dataset.topic === topic);
-          if (zone) { openChat(zone.dataset.topic, zone.dataset.system); }
-          // After setting the station, fall through to start recording.
+        let obj = rc.intersections[0].object;
+        while (obj && !obj.el) obj = obj.parent;
+        const hit = obj ? obj.el : null;
+        if (hit) {
+          const onPortal = hit.id === 'website-portal' ||
+                           !!(hit.closest && hit.closest('#website-portal'));
+          if (onPortal) {
+            vrTopic.setAttribute('value', '🌐 LabMate Website');
+            vrMsg.setAttribute('value', 'Visit from a computer or phone:\nlab-mate-khaki.vercel.app');
+            vrStatus.setAttribute('value', '[ take off headset to browse ]');
+            handled = true;
+          } else if (hit.classList && hit.classList.contains('interactive') && hit.dataset.topic) {
+            const zone = Array.from(zones).find(z => z.dataset.topic === hit.dataset.topic);
+            if (zone) { openChat(zone.dataset.topic, zone.dataset.system); handled = true; }
+          }
         }
       }
 
-      // Start / stop voice — works whether the user pointed at a hotspot or
-      // is already in a proximity zone.
-      if (isRecording) {
-        stopRecording();
-      } else {
-        startRecording();
-        vrStatus.setAttribute('value', '🔴 Listening... press trigger again to send');
+      // Fallback: open the station chat for whichever proximity zone the player is in.
+      if (!handled && activeZone) {
+        openChat(activeZone.dataset.topic, activeZone.dataset.system);
+        handled = true;
+      }
+
+      if (!handled) {
+        vrStatus.setAttribute('value', 'Walk near a lab station, then press the trigger.');
       }
     });
 
     leftHandEl.addEventListener('triggerdown', () => {
-      if (!isVR || !activeZone) return;
-      // Stop any current TTS when left trigger is pressed.
+      if (!isVR) return;
+      if (chatOverlay.style.display === 'block') { closeChat(); return; }
       stopSpeaking();
     });
 
