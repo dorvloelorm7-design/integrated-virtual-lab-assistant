@@ -527,7 +527,14 @@
       <a-entity id="rightHand"
         hand-controls="hand: right; handModelStyle: lowPoly; color: #ffd5b3"
         hand-tracking-controls="hand: right"
-        raycaster="objects: .interactive; far: 8; showLine: false"></a-entity>
+        raycaster="objects: .interactive; far: 8; showLine: true; lineColor: #00ccff; lineOpacity: 0.85">
+        <!-- Dot cursor shown at the ray's hit point -->
+        <a-sphere raycaster-cursor
+          radius="0.015" color="#00ccff" opacity="0.9"
+          material="shader: flat; color: #00ccff"
+          position="0 0 -0.15" visible="false">
+        </a-sphere>
+      </a-entity>
     </a-entity>
 
     <!-- VR chat HUD — world-space panel, repositioned each frame by JS to stay
@@ -548,6 +555,30 @@
     </a-entity>
 
   </a-scene>
+
+  <!-- VR controller dot cursor: moves the child sphere to the ray hit point -->
+  <script>
+    AFRAME.registerComponent('raycaster-cursor', {
+      init() {
+        this._pos = new THREE.Vector3();
+        this._hand = this.el.parentEl;
+      },
+      tick() {
+        const rc = this._hand.components && this._hand.components.raycaster;
+        if (!rc) return;
+        const hits = rc.intersections;
+        if (hits && hits.length > 0) {
+          // Move dot to intersection point in local hand space
+          const worldPos = hits[0].point;
+          this._hand.object3D.worldToLocal(this._pos.copy(worldPos));
+          this.el.object3D.position.copy(this._pos);
+          this.el.object3D.visible = true;
+        } else {
+          this.el.object3D.visible = false;
+        }
+      },
+    });
+  </script>
 
   <!-- Wall & furniture collision (prevents walking through walls / benches) -->
   <script>
