@@ -9,6 +9,26 @@
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Transformers.js: runs Whisper entirely in-browser (no API key, no cost) -->
+  <script type="module">
+    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
+    env.allowLocalModels = false;
+    // Expose globally so the main script can call it
+    window._whisperReady = false;
+    window._whisperPipeline = null;
+    window._whisperLoad = async function() {
+      if (window._whisperPipeline) return window._whisperPipeline;
+      window._whisperPipeline = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+      window._whisperReady = true;
+      return window._whisperPipeline;
+    };
+    window._whisperTranscribe = async function(audioBlob) {
+      const asr = await window._whisperLoad();
+      const arrayBuf = await audioBlob.arrayBuffer();
+      const result = await asr(arrayBuf, { language: 'english', task: 'transcribe' });
+      return result.text.trim();
+    };
+  </script>
 
   <style>
     /* ── Loading screen ── */
@@ -1226,10 +1246,79 @@
       stopRecBtn.addEventListener('click', (e) => { e.stopPropagation(); stopRecording(); });
       recordingOverlay.addEventListener('click', stopRecording);
     } else {
-      voiceQuickBtn.title = 'Voice input not supported. Use Chrome or Edge.';
+      voiceQuickBtn.title = 'Voice input not supported in this browser — use the Text button.';
       voiceQuickBtn.style.opacity = '0.4';
       voiceQuickBtn.style.cursor  = 'not-allowed';
     }
+
+    // ── Whisper fallback (VR / browsers without SpeechRecognition) ────────
+    // Uses @xenova/transformers running fully in-browser — no API key needed.
+    let mediaRecorder = null;
+    let mediaChunks   = [];
+    let isMediaRecording = false;
+
+    async function startWhisperRecording() {
+      if (isMediaRecording) return;
+      // Warm up the model in the background on first use
+      if (window._whisperLoad && !window._whisperReady) {
+        if (isVR) vrStatus.setAttribute('value', '⏳ Loading voice model (first use ~20s)…');
+        window._whisperLoad().catch(() => {});
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        if (isVR) vrStatus.setAttribute('value', '🚫 Mic blocked — allow mic access in your browser settings.');
+        return;
+      }
+      mediaChunks = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) mediaChunks.push(e.data); };
+      mediaRecorder.start(100);
+      isMediaRecording = true;
+      setRecordingState(true);
+      if (isVR) vrStatus.setAttribute('value', '🔴 Listening… press trigger again to send');
+    }
+
+    async function stopWhisperRecording() {
+      if (!isMediaRecording || !mediaRecorder) return;
+      isMediaRecording = false;
+      setRecordingState(false);
+      if (isVR) vrStatus.setAttribute('value', '⏳ Transcribing… please wait');
+
+      await new Promise(resolve => {
+        mediaRecorder.onstop = resolve;
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      });
+
+      const blob = new Blob(mediaChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      mediaChunks = [];
+
+      if (!window._whisperTranscribe) {
+        if (isVR) vrStatus.setAttribute('value', '⚠️ Voice model not loaded — try again in a moment.');
+        return;
+      }
+      try {
+        const text = await window._whisperTranscribe(blob);
+        if (text) {
+          if (recLabel) recLabel.textContent = '✅ ' + text;
+          sendMessage(text);
+        } else {
+          if (isVR) vrStatus.setAttribute('value', '⚠️ Could not hear anything — try again.');
+        }
+      } catch (err) {
+        console.error('Whisper error:', err);
+        if (isVR) vrStatus.setAttribute('value', '⚠️ Transcription failed — try typing instead.');
+      }
+    }
+
+    function startVoiceVR()  { if (recognition) startRecording(); else startWhisperRecording(); }
+    function stopVoiceVR()   { if (recognition) stopRecording();  else stopWhisperRecording();  }
+    function isVoiceActiveVR() { return isRecording || isMediaRecording; }
 
     // ── AI Proximity Zone Detection ─────────────────────────────────────
     const zones = document.querySelectorAll('.proximity-zone');
@@ -1487,11 +1576,14 @@
       });
 
       // Unlock audio context and proactively request microphone permission.
-      // Doing this on the first XR user-gesture means the browser should
-      // grant it before the user presses the trigger to speak.
       try { new (window.AudioContext || window.webkitAudioContext)().resume(); } catch (_) {}
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {});
+      }
+      // Pre-warm Whisper model when SpeechRecognition is unavailable so the
+      // first voice press doesn't have to wait for the download.
+      if (!recognition && window._whisperLoad) {
+        window._whisperLoad().catch(() => {});
       }
     });
 
@@ -1522,14 +1614,7 @@
 
       // If chat overlay is already open: right trigger starts / stops voice.
       if (chatOverlay.style.display === 'block') {
-        if (isRecording) {
-          stopRecording();
-        } else if (!recognition) {
-          vrStatus.setAttribute('value', '⚠️ Voice not available in this browser — use the Text box');
-        } else {
-          startRecording();
-          vrStatus.setAttribute('value', '🔴 Listening... press trigger again to send');
-        }
+        if (isVoiceActiveVR()) stopVoiceVR(); else startVoiceVR();
         return;
       }
 
@@ -1569,6 +1654,7 @@
 
     leftHandEl.addEventListener('triggerdown', () => {
       if (!isVR) return;
+      if (isVoiceActiveVR()) { stopVoiceVR(); return; }
       if (chatOverlay.style.display === 'block') { closeChat(); return; }
       stopSpeaking();
     });

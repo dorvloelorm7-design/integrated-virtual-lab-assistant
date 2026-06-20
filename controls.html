@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LabMate — Controls Reference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #080d18;
+    color: #c8deff;
+    padding: 40px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+    border-bottom: 1px solid #1a3a5a;
+    padding-bottom: 20px;
+  }
+  header h1 { color: #00aaff; font-size: 1.6rem; letter-spacing: 0.15em; margin-bottom: 6px; }
+  header p { color: #4a7a9b; font-size: 0.85rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  section h2 {
+    color: #4a9aff;
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #1a3a5a;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  tr + tr td { border-top: 1px solid #0d1829; }
+  td { padding: 9px 6px; font-size: 0.8rem; vertical-align: top; }
+  td:first-child {
+    white-space: nowrap;
+    padding-right: 16px;
+  }
+  .key {
+    display: inline-block;
+    background: #0d1829;
+    border: 1px solid #2a4a7a;
+    border-radius: 5px;
+    padding: 1px 7px;
+    color: #7ab8ff;
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+  .desc { color: #8ab0d4; }
+  .tip {
+    margin-top: 28px;
+    background: #0d1829;
+    border: 1px solid #1a3a5a;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 0.78rem;
+    color: #6a9abf;
+    line-height: 1.6;
+  }
+  .tip strong { color: #4a9aff; }
+  footer {
+    text-align: center;
+    margin-top: 36px;
+    color: #2a4a6a;
+    font-size: 0.72rem;
+    border-top: 1px solid #0d1829;
+    padding-top: 14px;
+  }
+  @media print {
+    body { background: #fff; color: #111; padding: 20px; }
+    header h1 { color: #005599; }
+    section h2 { color: #005599; border-color: #ccc; }
+    .key { background: #eef; border-color: #99b; color: #225; }
+    .desc { color: #333; }
+    .tip { background: #f5f8ff; border-color: #bbd; color: #445; }
+    .tip strong { color: #005599; }
+    footer { color: #999; }
+    tr + tr td { border-color: #eee; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🤖  LabMate — Controls Reference</h1>
+  <p>Electronics Physics Virtual Lab · AI-powered guidance</p>
+</header>
+
+<div class="grid">
+
+  <section>
+    <h2>Desktop</h2>
+    <table>
+      <tr>
+        <td><span class="key">W A S D</span><br><span class="key">↑ ↓ ← →</span></td>
+        <td class="desc">Move forward / back / strafe</td>
+      </tr>
+      <tr>
+        <td><span class="key">Mouse drag</span></td>
+        <td class="desc">Look around (click the scene first to lock the cursor)</td>
+      </tr>
+      <tr>
+        <td><span class="key">E</span></td>
+        <td class="desc">Open AI chat for the current station (must be inside a proximity zone)</td>
+      </tr>
+      <tr>
+        <td><span class="key">V</span></td>
+        <td class="desc">Start voice input (microphone)</td>
+      </tr>
+      <tr>
+        <td><span class="key">V</span> or <span class="key">Space</span></td>
+        <td class="desc">Stop voice recording and send</td>
+      </tr>
+      <tr>
+        <td><span class="key">Esc</span></td>
+        <td class="desc">Close the chat overlay</td>
+      </tr>
+      <tr>
+        <td><span class="key">P</span></td>
+        <td class="desc">Toggle XYZ coordinate display (bottom-centre)</td>
+      </tr>
+      <tr>
+        <td><span class="key">⌨️ Text</span> button</td>
+        <td class="desc">Open chat by clicking the on-screen Text button</td>
+      </tr>
+      <tr>
+        <td><span class="key">🎙️ Voice</span> button</td>
+        <td class="desc">Start / stop microphone input by clicking the on-screen Voice button</td>
+      </tr>
+      <tr>
+        <td><span class="key">? Help</span> button</td>
+        <td class="desc">Show the in-app controls quick reference</td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>VR — Meta Quest</h2>
+    <table>
+      <tr>
+        <td><span class="key">Left thumbstick</span></td>
+        <td class="desc">Move and strafe around the lab</td>
+      </tr>
+      <tr>
+        <td><span class="key">Right controller</span></td>
+        <td class="desc">Emits a cyan laser pointer — aim it at objects to interact</td>
+      </tr>
+      <tr>
+        <td><span class="key">Right trigger</span><br><em style="font-size:0.7rem;color:#4a7a9b">(chat closed)</em></td>
+        <td class="desc">Open the AI chat panel for the nearest station, or aim the laser at a glowing orb first to pick a specific station</td>
+      </tr>
+      <tr>
+        <td><span class="key">Right trigger</span><br><em style="font-size:0.7rem;color:#4a7a9b">(chat open)</em></td>
+        <td class="desc">Start voice input · press again to stop and send</td>
+      </tr>
+      <tr>
+        <td><span class="key">Left trigger</span></td>
+        <td class="desc">Close the chat panel · or stop the AI from speaking</td>
+      </tr>
+      <tr>
+        <td><span class="key">Aim at glowing orb</span></td>
+        <td class="desc">Laser highlights the orb; press right trigger to open that station's chat</td>
+      </tr>
+      <tr>
+        <td><span class="key">Aim at green screen</span></td>
+        <td class="desc">Point at the LabMate tablet screen; press right trigger to see the website URL in your HUD</td>
+      </tr>
+    </table>
+  </section>
+
+</div>
+
+<div class="tip">
+  <strong>How interaction works in VR:</strong><br>
+  Walk near any glowing coloured orb (each one marks a lab station). A message appears in the floating HUD panel in front of you. Press the <strong>right trigger</strong> to open the chat panel — it appears as a 2D overlay inside the headset. You can then type with the Quest virtual keyboard, or press the <strong>right trigger</strong> again to speak your question. When the AI answers you will hear it read aloud and see the text in both the HUD and the chat panel. Press the <strong>left trigger</strong> to close the chat and walk to the next station.
+</div>
+
+<div class="tip" style="margin-top:14px;">
+  <strong>Stations:</strong>
+  <span style="color:#00ff88">● Oscilloscope</span> &nbsp;
+  <span style="color:#ffaa00">● Power Supply / Function Generator</span> &nbsp;
+  <span style="color:#00aaff">● Measurement &amp; Calibration</span> &nbsp;
+  <span style="color:#ff44aa">● Electronics Workbench</span>
+</div>
+
+<footer>
+  LabMate · lab-mate-khaki.vercel.app · open controls.html in a browser and print to PDF
+</footer>
+
+</body>
+</html>
