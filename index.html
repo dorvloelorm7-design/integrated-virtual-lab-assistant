@@ -242,6 +242,15 @@
     #hud-message { margin: 0 0 6px; font-size: 14px; line-height: 1.45; color: #d8dee9; font-family: 'Courier New', monospace; }
     #hud-distance { margin: 0; font-size: 12px; color: #8b949e; font-family: 'Courier New', monospace; }
 
+    /* ── Coordinate debug display (press P to toggle) ── */
+    #coord-display {
+      display: none; position: fixed; bottom: 16px; right: 16px;
+      background: rgba(0,0,0,0.75); color: #00ffcc;
+      font-family: 'Courier New', monospace; font-size: 0.75rem;
+      padding: 6px 12px; border-radius: 8px; border: 1px solid #00ffcc44;
+      z-index: 9000; pointer-events: none; letter-spacing: 0.04em;
+    }
+
     /* ── Incident log panel ── */
     #incident-panel {
       position: fixed; bottom: 16px; left: 16px;
@@ -312,6 +321,9 @@
     <h3>⚠ SAFETY LOG</h3>
     <ul id="incident-log"></ul>
   </div>
+
+  <!-- Coordinate debug display — press P to toggle, walk to equipment to read XZ position -->
+  <div id="coord-display">X: 0.00 &nbsp; Y: 0.00 &nbsp; Z: 0.00</div>
 
   <!-- AI Chat Overlay -->
   <div id="chat-overlay">
@@ -473,21 +485,6 @@
     <a-entity id="rig" position="0.06 0 3" movement-controls="speed: 0.09; fly: false" lab-collider>
       <a-camera id="camera" position="0 2.4 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
         <a-cursor color="#7df" opacity="0.6" fuse="false" raycaster="objects: .interactive"></a-cursor>
-
-        <!-- VR HUD — 3D panel fixed 1.5 m in front of eyes, only visible in VR mode -->
-        <a-entity id="vr-hud" visible="false" position="0 -0.15 -1.5">
-          <a-plane width="1.6" height="0.82"
-            material="color: #050a12; opacity: 0.93; transparent: true; shader: flat"></a-plane>
-          <a-text id="vr-topic" value="🤖 LabMate Assistant" color="#00aaff"
-            position="0 0.34 0.005" align="center" width="1.5" wrap-count="36"></a-text>
-          <a-text id="vr-msg"
-            value="Walk near a station. Press the right trigger to ask a question."
-            color="#c8deff" position="-0.72 0.2 0.005" align="left" width="1.44"
-            wrap-count="38" baseline="top"></a-text>
-          <a-text id="vr-status" value="[ right trigger = voice ]"
-            color="#4a7a9b" position="0 -0.36 0.005" align="center" width="1.5"
-            wrap-count="40"></a-text>
-        </a-entity>
       </a-camera>
 
       <!-- VR HANDS — visible hand models when using a headset with controllers -->
@@ -498,6 +495,23 @@
         hand-controls="hand: right; handModelStyle: lowPoly; color: #ffd5b3"
         hand-tracking-controls="hand: right"
         raycaster="objects: .interactive; far: 8; showLine: false"></a-entity>
+    </a-entity>
+
+    <!-- VR chat HUD — world-space panel, repositioned each frame by JS to stay
+         2 m ahead of the camera. Parented to scene root (not camera) to avoid
+         WebXR camera-transform issues. Hidden until enter-vr fires. -->
+    <a-entity id="vr-hud" visible="false">
+      <a-plane width="1.7" height="0.9"
+        material="color: #050a12; opacity: 0.95; transparent: true; shader: flat"></a-plane>
+      <a-text id="vr-topic" value="🤖 LabMate Assistant" color="#00aaff"
+        position="0 0.36 0.005" align="center" width="1.6" wrap-count="38"></a-text>
+      <a-text id="vr-msg"
+        value="Walk near a glowing orb or a station, then press the right trigger to speak."
+        color="#c8deff" position="-0.78 0.2 0.005" align="left" width="1.55"
+        wrap-count="40" baseline="top"></a-text>
+      <a-text id="vr-status" value="[ right trigger = start / stop voice ]"
+        color="#4a7a9b" position="0 -0.39 0.005" align="center" width="1.6"
+        wrap-count="42"></a-text>
     </a-entity>
 
   </a-scene>
@@ -1111,6 +1125,12 @@
 
     // ── Keyboard shortcuts ──────────────────────────────────────────────
     document.addEventListener('keydown', (e) => {
+      // P toggles the coordinate display (walk to equipment, note XYZ, report new positions)
+      if (e.code === 'KeyP') {
+        coordVisible = !coordVisible;
+        coordDisplay.style.display = coordVisible ? 'block' : 'none';
+        return;
+      }
       // V toggles recording — works in pointer lock
       if (e.code === 'KeyV' && chatOverlay.style.display !== 'block') {
         e.preventDefault();
@@ -1167,19 +1187,61 @@
       });
     });
 
+    // ── Coordinate display (press P) ────────────────────────────────────
+    const coordDisplay = document.getElementById('coord-display');
+    let coordVisible = false;
+    setInterval(() => {
+      if (!coordVisible) return;
+      const rig = document.getElementById('rig');
+      if (!rig || !rig.object3D) return;
+      const p = rig.object3D.position;
+      coordDisplay.textContent =
+        'X: ' + p.x.toFixed(2) + '   Y: ' + p.y.toFixed(2) + '   Z: ' + p.z.toFixed(2);
+    }, 200);
+
     // ── VR enter / exit ─────────────────────────────────────────────────
     const rigEl = document.getElementById('rig');
     let vrRigYOffset = 0;
+    let vrHudInterval = null;
+
+    // DOM elements to hide while in VR so they don't appear as flat overlays.
+    const vrHideEls = ['safety-hud', 'proximity-prompt', 'assistant-btns',
+                       'controls-hint', 'incident-panel', 'coord-display'];
+
+    // Pre-allocate vectors for the HUD positioning loop.
+    const _hudCamPos = new THREE.Vector3();
+    const _hudCamDir = new THREE.Vector3();
 
     scene.addEventListener('enter-vr', () => {
       isVR = true;
-      // Raise the rig so VR eye-level aligns with the lab floor.
-      // Quest/PCVR tracking adds real height on top of this, so +0.8 m puts
-      // a seated user (~1.0 m) at the same apparent height as a desktop user.
       vrRigYOffset = 0.8;
       rigEl.object3D.position.y += vrRigYOffset;
+
+      // Show the 3D HUD and start keeping it 2 m ahead of the camera.
       vrHud.setAttribute('visible', 'true');
-      // Unlock AudioContext so beep alerts and TTS work inside the headset.
+      vrHudInterval = setInterval(() => {
+        if (!cameraEl.object3D) return;
+        cameraEl.object3D.getWorldPosition(_hudCamPos);
+        cameraEl.object3D.getWorldDirection(_hudCamDir);
+        // Place panel 2 m along the camera's forward direction.
+        vrHud.object3D.position
+          .copy(_hudCamPos)
+          .addScaledVector(_hudCamDir, 2.0);
+        // Face the panel back toward the camera
+        // (lookAt the camera side of the ray keeps -Z pointing at viewer).
+        vrHud.object3D.lookAt(
+          _hudCamPos.clone().addScaledVector(_hudCamDir, -1)
+        );
+      }, 50);
+
+      // Hide flat DOM overlays so they don't appear as a 2-D panel in headset.
+      vrHideEls.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.dataset.vrHidden = el.style.display || '';
+        if (el) el.style.display = 'none';
+      });
+
+      // Unlock audio.
       try { new (window.AudioContext || window.webkitAudioContext)().resume(); } catch (_) {}
     });
 
@@ -1188,6 +1250,16 @@
       rigEl.object3D.position.y -= vrRigYOffset;
       vrRigYOffset = 0;
       vrHud.setAttribute('visible', 'false');
+      if (vrHudInterval) { clearInterval(vrHudInterval); vrHudInterval = null; }
+
+      // Restore DOM overlays.
+      vrHideEls.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.dataset.vrHidden !== undefined) {
+          el.style.display = el.dataset.vrHidden;
+          delete el.dataset.vrHidden;
+        }
+      });
     });
 
     // ── VR controller: right trigger = voice, left trigger = open chat ──
